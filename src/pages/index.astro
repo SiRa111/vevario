@@ -639,6 +639,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   let isTypingMode = false;
   let isSpeakingBot = false;
   let accumulatedTranscript = '';
+  let isVirtualMic = false;
+  let lastKeyPressTime = 0;
   
   // --- CODING (DSA) MODE STATE ---
   let isCodingMode = false;
@@ -979,13 +981,19 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   // --- SPEECH RECOGNITION & MEDIARECORDER PIPELINE (STT) ---
   async function initAudioRecorder() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          } 
+        });
+      } catch (constraintsError) {
+        console.warn("Advanced audio constraints failed, retrying with basic constraints...", constraintsError);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       
       // Initialize Web Audio API Analyser Node and Noise Filtering
       if (!audioContext) {
@@ -1056,10 +1064,12 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         };
       }
 
+      isVirtualMic = false;
       return true;
     } catch (err) {
-      console.error("Error accessing microphone for raw capture:", err);
-      return false;
+      console.warn("Microphone not available or permission denied. Falling back to Virtual Mic simulation.", err);
+      isVirtualMic = true;
+      return true;
     }
   }
 
@@ -1153,6 +1163,32 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       return;
     }
 
+    if (isVirtualMic) {
+      setOrbState('listening');
+      micInstructions.textContent = "Virtual Mic active. Type your answer to transcribe in real-time.";
+      btnMicToggle.className = "w-16 h-16 rounded-full bg-accent-green/80 border border-white/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group";
+      
+      // Make live subtitle box editable and focused
+      liveSubtitleBox.contentEditable = "true";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-accent-blue/40 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left focus:outline-none focus:border-accent-blue/40 select-text";
+      if (liveSubtitleBox.textContent === "Tap microphone or type to answer..." || liveSubtitleBox.textContent.includes("Microphone muted")) {
+        liveSubtitleBox.textContent = "";
+      }
+      liveSubtitleBox.focus();
+      
+      // Handle real-time typing events
+      liveSubtitleBox.oninput = () => {
+        lastKeyPressTime = Date.now();
+        const text = liveSubtitleBox.textContent || "";
+        textareaAnswer.value = text;
+        countFillerWords(text);
+        calculateWpm(text);
+        renderChatHistory();
+      };
+      
+      return;
+    }
+
     if (mediaRecorder && mediaRecorder.state === 'inactive') {
       try {
         mediaRecorder.start();
@@ -1235,30 +1271,19 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
         } else {
           liveSubtitleBox.textContent = "Voice was not clear. Try again or click Switch to Type.";
-          liveSubtitleBox.contentEditable = "false";
-          micInstructions.textContent = "Microphone muted. Tap to talk";
+          liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none";
+          micInstructions.textContent = "Click microphone to record again";
         }
       } else {
         liveSubtitleBox.textContent = "No speech detected. Click mic to talk.";
-        liveSubtitleBox.contentEditable = "false";
-        micInstructions.textContent = "Microphone muted. Tap to talk";
+        liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none";
+        micInstructions.textContent = "Click microphone to record again";
       }
     } catch (err) {
-      console.warn("Gemini transcription failed:", err);
-      const fallback = textareaAnswer.value.trim();
-      if (fallback) {
-        liveSubtitleBox.textContent = fallback;
-        liveSubtitleBox.contentEditable = "true";
-        liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none";
-        liveSubtitleBox.oninput = () => {
-          textareaAnswer.value = liveSubtitleBox.textContent;
-        };
-        micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
-      } else {
-        liveSubtitleBox.textContent = "Transcription error. Click mic to try again.";
-        liveSubtitleBox.contentEditable = "false";
-        micInstructions.textContent = "Microphone muted. Tap to talk";
-      }
+      console.error("Transcription error:", err);
+      liveSubtitleBox.textContent = "Transcription error. Click mic to try again.";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-red-400/70 overflow-y-auto text-center italic flex items-center justify-center select-none";
+      micInstructions.textContent = "Click microphone to try again";
     } finally {
       btnSubmitAnswer.disabled = false;
       btnSubmitAnswer.textContent = "SEND ANSWER";
@@ -1286,7 +1311,13 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
 
     setOrbState('idle');
     btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
-    micInstructions.textContent = "Microphone muted. Tap to talk";
+    
+    if (isVirtualMic) {
+      liveSubtitleBox.contentEditable = "true";
+      micInstructions.textContent = "Review transcription above (click to edit), or click mic to add more.";
+    } else {
+      micInstructions.textContent = "Microphone muted. Tap to talk";
+    }
   }
 
   // Helper to fetch recorded blob with a Promise wrapper if active
@@ -1352,10 +1383,20 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         const multiplier = Math.sin(Math.PI * (i / (bars.length - 1)));
         
         let targetHeight = 4;
-        if (frequencyData) {
+        if (frequencyData && !isVirtualMic) {
           const binIdx = Math.floor(i * (frequencyData.length / bars.length));
           const val = frequencyData[binIdx] || 0;
           targetHeight = 4 + (val / 255) * 72 * multiplier;
+        } else if (isVirtualMic) {
+          // Virtual Mic visualizer powered by keyboard typing energy
+          const timeSinceLastKey = Date.now() - lastKeyPressTime;
+          const keyEnergy = Math.max(0, 1 - timeSinceLastKey / 1200); // Decays over 1.2s
+          
+          const t = Date.now() * 0.008;
+          const baseWave = (Math.sin(t + i * 0.2) * 0.5 + 0.5);
+          const typingWave = Math.random() * keyEnergy * 60;
+          
+          targetHeight = 4 + (baseWave * 15 + typingWave) * multiplier;
         } else {
           // Procedural animation fallback
           const t = Date.now() * 0.008;
@@ -1448,7 +1489,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   function startWordByWordRendering(words, fallbackText) {
     stopWordByWordRendering();
     
-    const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+    const getTargetEl = () => isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+    const targetEl = getTargetEl();
     if (!targetEl) return;
     targetEl.innerHTML = '';
     
@@ -1466,10 +1508,12 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     
     words.forEach((word, index) => {
       const timeoutId = setTimeout(() => {
+        const currentTarget = getTargetEl();
+        if (!currentTarget) return;
         if (index === 0) {
-          targetEl.textContent = word.text;
+          currentTarget.textContent = word.text;
         } else {
-          targetEl.textContent += " " + word.text;
+          currentTarget.textContent += " " + word.text;
         }
       }, word.start);
       wordRenderTimeouts.push(timeoutId);
@@ -1484,7 +1528,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   function startTypewriter(text, durationSeconds) {
     stopTypewriter();
     
-    const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+    const getTargetEl = () => isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+    const targetEl = getTargetEl();
     if (!targetEl) return;
     targetEl.innerHTML = '';
  
@@ -1501,11 +1546,13 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     
     let index = 0;
     typewriterInterval = setInterval(() => {
+      const currentTarget = getTargetEl();
+      if (!currentTarget) return;
       if (index < words.length) {
         if (index === 0) {
-          targetEl.textContent = words[index];
+          currentTarget.textContent = words[index];
         } else {
-          targetEl.textContent += ' ' + words[index];
+          currentTarget.textContent += ' ' + words[index];
         }
         index++;
       } else {
@@ -2625,7 +2672,14 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       } else {
         const hasMic = await checkMicAndInitialize();
         if (hasMic) {
-          startHintMic();
+          if (isVirtualMic) {
+            const query = prompt("No microphone detected. Type your question for the interviewer:");
+            if (query && query.trim().length >= 3) {
+              fetchHintFromInterviewer(query.trim());
+            }
+          } else {
+            startHintMic();
+          }
         } else {
           alert("Microphone permission blocked or unavailable. Please adjust browser settings.");
         }
@@ -2640,7 +2694,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     } else {
       micEnabled = false;
       stopRecording();
-      await transcribeRecordedVoice();
+      if (!isVirtualMic) {
+        await transcribeRecordedVoice();
+      }
     }
   });
 
@@ -2834,6 +2890,14 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   function renderChatHistory() {
     const container = document.getElementById('chat-history-container');
     if (!container) return;
+
+    // Cache active question bubble content before clearing container
+    let activeBubbleHTML = null;
+    const existingActive = document.getElementById('active-question-bubble');
+    if (existingActive) {
+      activeBubbleHTML = existingActive.innerHTML;
+    }
+
     container.innerHTML = '';
 
     const maxLength = Math.max(questionsList.length, answersList.length);
@@ -2851,9 +2915,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         
         if (i === questionsList.length - 1 && isSpeakingBot) {
           qInner.id = "active-question-bubble";
-          const existingActive = document.getElementById('active-question-bubble');
-          if (existingActive) {
-            qInner.innerHTML = existingActive.innerHTML;
+          if (activeBubbleHTML) {
+            qInner.innerHTML = activeBubbleHTML;
           } else {
             qInner.innerHTML = `<span class="flex items-center gap-1.5 py-1" id="active-question-thinking-indicator"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-duration:1s]"></span><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-duration:1s] [animation-delay:0.2s]"></span><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-duration:1s] [animation-delay:0.4s]"></span></span>`;
           }
@@ -2974,6 +3037,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       const hasLiveTranscript = liveText && !ignoredPhrases.includes(liveText) && liveText.length >= 5;
       
       if (!hasLiveTranscript) {
+        if (isVirtualMic) {
+          alert("Please type a substantive answer.");
+          return;
+        }
         micEnabled = false;
         await transcribeRecordedVoice();
         return; // Return early so they can edit the transcription and then submit
