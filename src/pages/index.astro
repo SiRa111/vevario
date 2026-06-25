@@ -258,7 +258,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         </div>
 
         <!-- Right Column: Dialogue Chatbox (takes 7 cols) -->
-        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-6 relative min-h-[500px] h-full">
+        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-6 relative h-[580px] max-h-[580px] min-h-[580px]">
           <div class="absolute -right-12 -top-12 w-24 h-24 radial-glow-blue opacity-25 rounded-full filter blur-xl pointer-events-none z-0"></div>
           
           <!-- Chat Panel Header with HUD stats -->
@@ -289,7 +289,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           </div>
 
           <!-- Chat History Scrolling Container -->
-          <div id="chat-history-container" class="flex-grow overflow-y-auto pr-1 mb-4 space-y-4 max-h-[350px] min-h-[200px] relative z-10 scroll-smooth">
+          <div id="chat-history-container" class="overflow-y-auto pr-1 mb-4 space-y-4 h-[310px] min-h-[310px] max-h-[310px] relative z-10 scroll-smooth">
             <!-- Dynamic chat bubbles loaded here -->
           </div>
 
@@ -1002,6 +1002,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         // 1. Create source
         audioSource = audioContext.createMediaStreamSource(stream);
         
+        // 1.5. Create Gain Node to boost microphone sensitivity by 4.0x (~12dB)
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 4.0;
+        
         // 2. Create highpass filter to cut off low frequency rumble (e.g. traffic, AC hum, below 150Hz)
         const hpFilter = audioContext.createBiquadFilter();
         hpFilter.type = 'highpass';
@@ -1036,7 +1040,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         const destination = audioContext.createMediaStreamDestination();
         
         // Connect the Web Audio chain
-        audioSource.connect(hpFilter);
+        audioSource.connect(gainNode);
+        gainNode.connect(hpFilter);
         hpFilter.connect(lpFilter);
         lpFilter.connect(speechBoostFilter);
         speechBoostFilter.connect(compressor);
@@ -1209,7 +1214,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       micInstructions.textContent = "Recording... speak now";
       btnMicToggle.className = "w-16 h-16 rounded-full bg-accent-green/80 border border-white/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group";
       liveSubtitleBox.textContent = "Recording your voice... speak now, and click SEND ANSWER when finished.";
-      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center italic flex items-center justify-center select-none";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center italic flex items-center justify-center select-none";
     }
   }
 
@@ -1229,7 +1234,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     
     if (hasLiveTranscript) {
       liveSubtitleBox.contentEditable = "true";
-      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
       
       liveSubtitleBox.oninput = () => {
         textareaAnswer.value = liveSubtitleBox.textContent;
@@ -1246,7 +1251,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     setOrbState('thinking');
     
     liveSubtitleBox.innerHTML = '<span class="text-accent-blue animate-pulse">Transcribing speech with Gemini 1.5 Flash...</span>';
-    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center flex items-center justify-center select-none";
+    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center flex items-center justify-center select-none";
 
     try {
       const audioBlob = await getRecordedAudioBlob();
@@ -1259,7 +1264,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           
           liveSubtitleBox.textContent = finalAnswer;
           liveSubtitleBox.contentEditable = "true";
-          liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
+          liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
           
           liveSubtitleBox.oninput = () => {
             textareaAnswer.value = liveSubtitleBox.textContent;
@@ -1271,18 +1276,18 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
         } else {
           liveSubtitleBox.textContent = "Voice was not clear. Try again or click Switch to Type.";
-          liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none";
+          liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none";
           micInstructions.textContent = "Click microphone to record again";
         }
       } else {
         liveSubtitleBox.textContent = "No speech detected. Click mic to talk.";
-        liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none";
+        liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none";
         micInstructions.textContent = "Click microphone to record again";
       }
     } catch (err) {
       console.error("Transcription error:", err);
       liveSubtitleBox.textContent = "Transcription error. Click mic to try again.";
-      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-red-400/70 overflow-y-auto text-center italic flex items-center justify-center select-none";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-red-400/70 overflow-y-auto text-center italic flex items-center justify-center select-none";
       micInstructions.textContent = "Click microphone to try again";
     } finally {
       btnSubmitAnswer.disabled = false;
@@ -2542,7 +2547,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     textareaAnswer.value = '';
     liveSubtitleBox.textContent = "Tap microphone or type to answer...";
     liveSubtitleBox.contentEditable = "false";
-    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-mute/40 overflow-y-auto text-center italic flex items-center justify-center select-none";
+    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/40 overflow-y-auto text-center italic flex items-center justify-center select-none";
     
     setOrbState('thinking');
     questionText.innerHTML = '<span class="text-mute animate-pulse">Evaluating solution draft...</span>';
