@@ -1,0 +1,299 @@
+---
+---
+<div class="flex flex-col items-center justify-center p-4">
+  <div id="orb-wrapper" class="relative w-80 h-80 flex items-center justify-center">
+    
+    <!-- Outer Dash Rotating Ring -->
+    <div id="orb-ring" class="absolute inset-0 rounded-full border border-white/10 border-dashed animate-[spin_60s_linear_infinite]"></div>
+    
+    <!-- Outer Glow Backdrop -->
+    <div id="orb-glow" class="absolute inset-4 rounded-full radial-glow-slate opacity-40 filter blur-xl transition-all duration-1000"></div>
+
+    <!-- Inner Core Orb Wrapper (Recessed Glass cavity) -->
+    <div id="interviewer-core-orb" class="w-56 h-56 rounded-full flex items-center justify-center z-10 transition-all duration-1000 overflow-hidden glass-inset bg-black/30 border border-white/5">
+      <!-- 3D Canvas Orb (Double resolution for retina crispness) -->
+      <canvas id="orb-canvas" width="640" height="640" class="w-full h-full"></canvas>
+      <!-- Dummy element for index.astro backwards compatibility -->
+      <div id="orb-icon" class="hidden"></div>
+    </div>
+
+    <!-- Rippling echo layers (hidden by default, toggled on speak) -->
+    <div id="orb-ripple" class="absolute w-56 h-56 rounded-full border border-white/10 animate-ripple pointer-events-none hidden"></div>
+  </div>
+
+  <!-- Status HUD & Voice Waves -->
+  <div class="mt-6 text-center select-none">
+    <div id="orb-status" class="text-xs font-mono tracking-[0.2em] text-mute uppercase mb-3">Interviewer Idle</div>
+    
+    <!-- Equalizer visualization -->
+    <div id="voice-bars" class="flex gap-1 justify-center items-center h-5 opacity-0 transition-opacity duration-300">
+      <div class="w-1 bg-mute rounded-full voice-bar" style="animation-delay: 0.1s; height: 16px;"></div>
+      <div class="w-1 bg-mute rounded-full voice-bar" style="animation-delay: 0.3s; height: 24px;"></div>
+      <div class="w-1 bg-mute rounded-full voice-bar" style="animation-delay: 0.2s; height: 12px;"></div>
+      <div class="w-1 bg-mute rounded-full voice-bar" style="animation-delay: 0.5s; height: 20px;"></div>
+      <div class="w-1 bg-mute rounded-full voice-bar" style="animation-delay: 0.4s; height: 8px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Canvas 3D particle orb simulation
+  const canvas = document.getElementById('orb-canvas') as HTMLCanvasElement;
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    // Animation state
+    let animationFrameId: number;
+    let currentState = 'idle'; // idle, speaking, listening, thinking
+    let time = 0;
+    
+    // 3D rotation angles
+    let angleX = 0;
+    let angleY = 0;
+    
+    // Target parameters for smooth transitions
+    let speedX = 0.002;
+    let speedY = 0.005;
+    let currentSpeedX = 0.002;
+    let currentSpeedY = 0.005;
+    let pulseScale = 1.0;
+    let targetPulseScale = 1.0;
+    
+    // Particle structure
+    interface Particle {
+      x0: number;
+      y0: number;
+      z0: number;
+      size: number;
+      color: string;
+      phase: number;
+    }
+    
+    const particles: Particle[] = [];
+    const numParticles = 300;
+    const sphereRadius = 200; // Base radius of the sphere
+    
+    // Inner glowing blobs
+    interface Blob {
+      xOffset: number;
+      yOffset: number;
+      zOffset: number;
+      radius: number;
+      color: string;
+      speedX: number;
+      speedY: number;
+      speedZ: number;
+      phaseX: number;
+      phaseY: number;
+      phaseZ: number;
+    }
+    
+    const blobs: Blob[] = [
+      { xOffset: 0, yOffset: 0, zOffset: 0, radius: 130, color: 'rgba(255, 255, 255, 0.25)', speedX: 0.8, speedY: 0.6, speedZ: 0.5, phaseX: 0, phaseY: 1, phaseZ: 2 },
+      { xOffset: 0, yOffset: 0, zOffset: 0, radius: 160, color: 'rgba(200, 205, 215, 0.2)', speedX: 0.5, speedY: 0.8, speedZ: 0.4, phaseX: 2, phaseY: 0, phaseZ: 1 },
+      { xOffset: 0, yOffset: 0, zOffset: 0, radius: 120, color: 'rgba(230, 235, 245, 0.22)', speedX: 0.7, speedY: 0.5, speedZ: 0.9, phaseX: 1, phaseY: 2, phaseZ: 0 },
+      { xOffset: 0, yOffset: 0, zOffset: 0, radius: 100, color: 'rgba(160, 165, 175, 0.15)', speedX: 0.9, speedY: 0.4, speedZ: 0.7, phaseX: 3, phaseY: 1, phaseZ: 3 },
+      { xOffset: 0, yOffset: 0, zOffset: 0, radius: 140, color: 'rgba(220, 225, 235, 0.2)', speedX: 0.4, speedY: 0.7, speedZ: 0.6, phaseX: 0, phaseY: 3, phaseZ: 1 },
+    ];
+    
+    // Distribute particles uniformly on sphere using Fibonacci sphere algorithm
+    for (let i = 0; i < numParticles; i++) {
+      const phi = Math.acos(1 - 2 * (i + 0.5) / numParticles);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+      
+      const x0 = sphereRadius * Math.sin(phi) * Math.cos(theta);
+      const y0 = sphereRadius * Math.sin(phi) * Math.sin(theta);
+      const z0 = sphereRadius * Math.cos(phi);
+      
+      const size = Math.random() * 2 + 1.5;
+      
+      // Variation in grayscale shades (silver, cool white, slate gray)
+      const randomType = Math.random();
+      let color = '';
+      if (randomType < 0.35) {
+        color = 'rgba(255, 255, 255, '; // Pure White
+      } else if (randomType < 0.70) {
+        color = 'rgba(180, 185, 195, '; // Cool Silver-Gray
+      } else {
+        color = 'rgba(120, 125, 135, '; // Slate Gray
+      }
+      
+      particles.push({
+        x0, y0, z0,
+        size,
+        color,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+    
+    // Expose state mutator to window
+    (window as any).setCanvasOrbState = (state: string) => {
+      currentState = state;
+      
+      // Calibrate rotation speeds and pulses depending on state
+      switch (state) {
+        case 'speaking':
+          speedX = 0.012;
+          speedY = 0.022;
+          targetPulseScale = 1.0;
+          break;
+        case 'listening':
+          speedX = 0.0;
+          speedY = 0.0;
+          targetPulseScale = 1.0;
+          break;
+        case 'thinking':
+          speedX = 0.025;
+          speedY = 0.005;
+          targetPulseScale = 0.95;
+          break;
+        case 'idle':
+        default:
+          speedX = 0.0;
+          speedY = 0.0;
+          targetPulseScale = 1.0;
+          break;
+      }
+    };
+    
+    // Standard 3D projection: Center is (centerX, centerY), perspective depth D
+    const D = 400;
+    
+    function draw() {
+      if (!ctx) return;
+      
+      // Clear canvas (keep it transparent to show page backdrop)
+      ctx.clearRect(0, 0, width, height);
+      
+      // Interpolate parameters smoothly
+      let targetSpeedX = speedX;
+      let targetSpeedY = speedY;
+      
+      const audio = (window as any).activeAudioElement;
+      if (currentState === 'speaking') {
+        if (audio && !audio.paused && audio.duration) {
+          const remaining = audio.duration - audio.currentTime;
+          if (remaining < 1.2) {
+            const factor = Math.max(0.0, remaining / 1.2);
+            // Decay speaking speed down to near-zero as speech ends
+            targetSpeedX = speedX * factor;
+            targetSpeedY = speedY * factor;
+          }
+        } else {
+          const startTime = (window as any).speechStartTime;
+          const estDuration = (window as any).speechEstimatedDuration;
+          if (startTime && estDuration) {
+            const elapsed = Date.now() - startTime;
+            const remaining = estDuration - elapsed;
+            if (remaining > 0 && remaining < 1200) {
+              const factor = Math.max(0.0, remaining / 1200);
+              targetSpeedX = speedX * factor;
+              targetSpeedY = speedY * factor;
+            }
+          }
+        }
+      }
+
+      currentSpeedX += (targetSpeedX - currentSpeedX) * 0.08;
+      currentSpeedY += (targetSpeedY - currentSpeedY) * 0.08;
+      pulseScale += (targetPulseScale - pulseScale) * 0.05;
+      
+      // Update animation time (only increment if not idle, or if deceleration is still finishing)
+      const isMoving = (currentState !== 'idle') || (currentSpeedX > 0.0001) || (currentSpeedY > 0.0001);
+      if (isMoving) {
+        time += 0.015;
+        angleX += currentSpeedX;
+        angleY += currentSpeedY;
+      }
+      
+      // 1. Draw Inner Glowing Blobs
+      blobs.forEach((blob) => {
+        // Compute floating motion
+        let bx = 0;
+        let by = 0;
+        let bz = 0;
+        
+        if (currentState !== 'idle') {
+          bx = Math.sin(time * blob.speedX + blob.phaseX) * 25;
+          by = Math.cos(time * blob.speedY + blob.phaseY) * 25;
+          bz = Math.sin(time * blob.speedZ + blob.phaseZ) * 20;
+        }
+        
+        // Project to 2D
+        const pers = D / (D + bz);
+        const bxProj = centerX + bx * pers;
+        const byProj = centerY + by * pers;
+        const radiusProj = blob.radius * pers * pulseScale;
+        
+        // Draw soft radial gradient
+        const grad = ctx.createRadialGradient(bxProj, byProj, 0, bxProj, byProj, radiusProj);
+        grad.addColorStop(0, blob.color);
+        grad.addColorStop(0.3, blob.color.replace('0.', '0.08'));
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(bxProj, byProj, radiusProj, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      // 2. Draw Outer Swirling Particles
+      // Sort particles by depth (Z) to draw back-to-front (painter's algorithm)
+      const projectedParticles = particles.map((p) => {
+        // Rotate around Y axis
+        let x1 = p.x0 * Math.cos(angleY) - p.z0 * Math.sin(angleY);
+        let z1 = p.x0 * Math.sin(angleY) + p.z0 * Math.cos(angleY);
+        
+        // Rotate around X axis
+        let y2 = p.y0 * Math.cos(angleX) - z1 * Math.sin(angleX);
+        let z2 = p.y0 * Math.sin(angleX) + z1 * Math.cos(angleX);
+        
+        // Radial pulse animation during speech
+        let rPulse = 1.0;
+        if (currentState === 'speaking') {
+          rPulse = 1.0 + Math.sin(time * 3 + p.phase) * 0.08;
+        } else if (currentState === 'listening') {
+          rPulse = 1.0 + Math.sin(time * 1.5 + p.phase) * 0.04;
+        }
+        
+        x1 *= rPulse * pulseScale;
+        y2 *= rPulse * pulseScale;
+        z2 *= rPulse * pulseScale;
+        
+        const pers = D / (D + z2);
+        const xProj = centerX + x1 * pers;
+        const yProj = centerY + y2 * pers;
+        
+        // Depth mapping: closer is brighter
+        const alpha = Math.min(1.0, Math.max(0.08, (sphereRadius * 1.5 - z2) / (sphereRadius * 2)));
+        
+        return {
+          x: xProj,
+          y: yProj,
+          z: z2,
+          size: p.size * pers,
+          color: `${p.color}${alpha.toFixed(2)})`
+        };
+      });
+      
+      // Draw sorted projected particles
+      projectedParticles.sort((a, b) => b.z - a.z);
+      
+      projectedParticles.forEach((p) => {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      animationFrameId = requestAnimationFrame(draw);
+    }
+    
+    // Start animation loop
+    draw();
+  }
+</script>

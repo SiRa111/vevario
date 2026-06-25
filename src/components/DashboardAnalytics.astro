@@ -1,0 +1,136 @@
+---
+---
+<div id="analytics-view" class="hidden max-w-4xl mx-auto w-full px-4 py-8 z-10 animate-[fadeIn_0.5s_ease-out]">
+  <!-- Header Title -->
+  <div class="border-b border-hairline pb-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+      <div class="text-xs font-mono tracking-widest text-mute uppercase mb-1">Session Complete</div>
+      <h1 class="text-3xl font-display font-light tracking-tight text-ink">Evaluation Dashboard</h1>
+    </div>
+    <!-- premium button (Glowy Glass capsule button) -->
+    <button id="btn-restart" class="px-6 py-2.5 premium-btn premium-btn-primary rounded-full font-mono text-xs font-semibold tracking-wider transition-all cursor-pointer shadow-md">
+      NEW SIMULATION
+    </button>
+  </div>
+
+  <!-- Score Grid Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Card 1: Overall Score (Radial Ring inside Glassmorphic Panel) -->
+    <div class="glass-panel p-6 flex flex-col items-center justify-center relative overflow-hidden">
+      <div class="absolute -right-4 -bottom-4 w-24 h-24 radial-glow-blue opacity-25 rounded-full filter blur-xl pointer-events-none z-0"></div>
+      <div class="text-xs font-mono tracking-wider text-mute uppercase mb-4 relative z-10">Overall Score</div>
+      
+      <div class="relative w-36 h-36 flex items-center justify-center z-10">
+        <!-- SVG Gauge -->
+        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+          <!-- Track (Soft recessed glass track circle) -->
+          <circle cx="50" cy="50" r="40" stroke="var(--hairline-border)" stroke-width="4" fill="transparent" />
+          <!-- Indicator -->
+          <circle id="gauge-indicator" cx="50" cy="50" r="40" stroke="#3b82f6" stroke-width="5" fill="transparent" 
+            stroke-dasharray="251.2" stroke-dashoffset="251.2" class="transition-all duration-1000 ease-out" />
+        </svg>
+        <div class="absolute text-center">
+          <span id="score-overall-text" class="text-4xl font-display font-light tracking-tighter text-ink">0</span>
+          <span class="text-xs font-light text-mute">%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Skill Subscores -->
+    <div class="glass-panel p-6 flex flex-col justify-center">
+      <div class="text-xs font-mono tracking-wider text-mute uppercase mb-4">Core Dimensions</div>
+      
+      <!-- Tech Accuracy -->
+      <div class="mb-4">
+        <div class="flex justify-between text-xs font-mono mb-1">
+          <span class="text-body font-medium">TECHNICAL KNOWLEDGE</span>
+          <span id="score-tech-text" class="text-accent-green font-semibold">0%</span>
+        </div>
+        <div class="h-2 w-full bg-black/40 glass-inset rounded-full overflow-hidden">
+          <div id="bar-tech" class="h-full bg-accent-green rounded-full transition-all duration-1000 ease-out" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Communication Skills -->
+      <div>
+        <div class="flex justify-between text-xs font-mono mb-1">
+          <span class="text-body font-medium">COMMUNICATION SKILLS</span>
+          <span id="score-comm-text" class="text-accent-orange font-semibold">0%</span>
+        </div>
+        <div class="h-2 w-full bg-black/40 glass-inset rounded-full overflow-hidden">
+          <div id="bar-comm" class="h-full bg-accent-orange rounded-full transition-all duration-1000 ease-out" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Filler & Pacing Insights -->
+    <div class="glass-panel p-6 flex flex-col justify-center relative overflow-hidden">
+      <div class="absolute -right-4 -top-4 w-24 h-24 radial-glow-green opacity-15 rounded-full filter blur-xl pointer-events-none z-0"></div>
+      <div class="text-xs font-mono tracking-wider text-mute uppercase mb-3 relative z-10">Speech Analytics</div>
+      
+      <div class="grid grid-cols-2 gap-4 relative z-10">
+        <div class="border-r border-hairline pr-2">
+          <div class="text-2xl font-light text-ink" id="stat-fillers">0</div>
+          <div class="text-[10px] font-mono text-mute uppercase tracking-wider">Filler Words (Ums)</div>
+        </div>
+        <div class="pl-2">
+          <div class="text-2xl font-light text-ink" id="stat-wpm">0</div>
+          <div class="text-[10px] font-mono text-mute uppercase tracking-wider">Average WPM</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance Summary -->
+  <div class="glass-panel p-6 mb-8">
+    <div class="text-xs font-mono tracking-wider text-mute uppercase mb-2">Executive Summary</div>
+    <p id="feedback-summary" class="text-sm font-marketing font-light leading-relaxed text-body text-left">Analyzing evaluation report...</p>
+  </div>
+
+  <!-- Strengths & Weaknesses -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <!-- Strengths -->
+    <div class="glass-panel p-6 border border-accent-green/30">
+      <div class="text-xs font-mono tracking-wider text-accent-green uppercase mb-3 flex items-center gap-2 font-semibold">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Key Strengths
+      </div>
+      <ul id="feedback-strengths" class="space-y-2.5 text-sm font-light text-body text-left">
+        <!-- Rendered dynamically -->
+      </ul>
+    </div>
+
+    <!-- Weaknesses -->
+    <div class="glass-panel p-6 border border-accent-red/20">
+      <div class="text-xs font-mono tracking-wider text-accent-red uppercase mb-3 flex items-center gap-2 font-semibold">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        Areas for Growth
+      </div>
+      <ul id="feedback-weaknesses" class="space-y-2.5 text-sm font-light text-body text-left">
+        <!-- Rendered dynamically -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- Detailed Timeline Review -->
+  <div class="mb-8">
+    <div class="text-xs font-mono tracking-wider text-mute uppercase mb-4">Question Timeline Review</div>
+    <div id="timeline-container" class="space-y-4">
+      <!-- Rendered dynamically -->
+    </div>
+  </div>
+
+  <!-- Revision Checklist -->
+  <div class="glass-panel p-6">
+    <div class="text-xs font-mono tracking-wider text-mute uppercase mb-4">Revision Roadmap</div>
+    <div id="roadmap-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Rendered dynamically -->
+    </div>
+  </div>
+</div>

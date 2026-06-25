@@ -1,0 +1,71 @@
+---
+import "../styles/global.css";
+
+interface Props {
+	title?: string;
+}
+
+const { title = "Vevario — Real-time AI Mock Interviewer" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		
+		<!-- Favicon -->
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+
+		<!-- SEO Meta Tags -->
+		<meta name="description" content="Vevario is a premium editorial-style AI mock interview simulator. Upload your resume, select topics, and practice with real-time text and speech evaluation." />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content="Vevario is a premium editorial-style AI mock interview simulator. Upload your resume, select topics, and practice with real-time text and speech evaluation." />
+		<meta property="og:type" content="website" />
+
+		<!-- Google Fonts: Inter (UI), Inter Tight (Marketing body), Playfair Display (Serif display), JetBrains Mono (Code) -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+		<!-- PDF.js CDN for client-side resume parsing -->
+		<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
+		<!-- Theme initialization script to prevent page flash -->
+		<script is:inline>
+			(function() {
+				const theme = localStorage.getItem('theme') || 'dark';
+				if (theme === 'light') {
+					document.documentElement.classList.add('light');
+				} else {
+					document.documentElement.classList.remove('light');
+				}
+			})();
+		</script>
+	</head>
+	<body class="bg-canvas text-ink min-h-screen relative selection:bg-accent-blue/30 selection:text-white">
+		<!-- Global SVG Gooey Filter for Liquid Simulation -->
+		<svg class="hidden" style="position: absolute; width: 0; height: 0;">
+			<defs>
+				<filter id="gooey-bg">
+					<feGaussianBlur in="SourceGraphic" stdDeviation="35" result="blur" />
+					<feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 32 -12" result="goo" />
+					<feBlend in="SourceGraphic" in2="goo" />
+				</filter>
+			</defs>
+		</svg>
+
+		<!-- Liquid/Wave Background Canvas -->
+		<canvas id="fluid-bg-canvas" class="fixed top-0 left-0 w-full h-full pointer-events-none z-0"></canvas>
+
+		<!-- Custom Metallic Pointer -->
+		<div id="metal-cursor"><div class="cursor-core"></div></div>
+
+		<div class="relative z-10 min-h-screen flex flex-col justify-between">
+			<slot />
+		</div>
+	</body>
+</html>

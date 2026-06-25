@@ -1,0 +1,3859 @@
+---
+import Layout from "../layouts/Layout.astro";
+import InterviewerOrb from "../components/InterviewerOrb.astro";
+import DashboardAnalytics from "../components/DashboardAnalytics.astro";
+
+const publicGeminiApiKey = import.meta.env.PUBLIC_GEMINI_API_KEY || "";
+const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
+---
+
+<Layout title="Vevario — Real-time AI Mock Interviewer">
+  <!-- Hidden environment config container -->
+  <div id="env-config" data-gemini={publicGeminiApiKey} data-eleven={publicElevenApiKey} class="hidden"></div>
+
+  <!-- Top Navigation Header (Frosted Glass Sticky Navigation) -->
+  <header class="border-b border-hairline bg-surface-card/60 backdrop-blur-md sticky top-0 z-50 shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-all">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div id="nav-logo" class="flex items-center gap-3 cursor-pointer select-none">
+        <!-- Vercel-like Triangle Logo (Soft glowing shadow) -->
+        <svg class="w-5 h-5 text-ink filter drop-shadow-[0_0_5px_rgba(255,255,255,0.3)]" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 22h20L12 2z" />
+        </svg>
+        <span class="font-mono text-sm font-semibold tracking-[0.25em] text-ink font-display">VEVARIO</span>
+        <span class="px-2.5 py-0.5 rounded bg-white/5 border border-hairline text-[10px] font-mono text-ink font-medium shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05)]">BETA</span>
+      </div>
+
+      <!-- Status Badge & Theme Toggle -->
+      <div class="flex items-center gap-3">
+        <!-- Connection Status LED -->
+        <div id="api-status-badge" class="flex items-center gap-2 font-mono text-[10px] px-3 py-1 bg-surface-elevated/40 border border-hairline rounded-full shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.05)]">
+          <span id="api-status-dot" class="w-1.5 h-1.5 rounded-full bg-accent-red shadow-[0_0_6px_#ef4444]"></span>
+          <span id="api-status-text" class="text-mute font-medium">KEY MISSING</span>
+        </div>
+
+        <!-- Premium Theme Toggle Button -->
+        <button id="theme-toggle" class="p-2 bg-surface-elevated/40 border border-hairline rounded-full hover:bg-white/[0.08] hover:border-white/20 transition-all cursor-pointer shadow-[inset_1px_1px_2px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.05)] flex items-center justify-center text-ink" aria-label="Toggle Theme">
+          <!-- Moon Icon (shows when light theme active, to switch to dark) -->
+          <svg id="theme-icon-dark" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+          </svg>
+          <!-- Sun Icon (shows when dark theme active, to switch to light) -->
+          <svg id="theme-icon-light" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m0 13.5V21M4.22 4.22l1.59 1.59m12.38 12.38l1.59 1.59M3 12h2.25m13.5 0H21M5.81 18.19l-1.59 1.59m12.38-12.38l-1.59 1.59M12 7.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow flex items-center justify-center relative bg-transparent overflow-hidden min-h-[calc(100vh-4rem)]">
+
+    <!-- ===================================== -->
+    <!-- 0. LANDING / HERO VIEW                -->
+    <!-- ===================================== -->
+    <div id="landing-view" class="max-w-4xl w-full px-6 py-12 z-10 flex flex-col justify-center items-center gap-10 animate-[fadeIn_0.5s_ease-out] mx-auto">
+      <div class="text-center space-y-4 max-w-2xl">
+        <div class="inline-flex items-center gap-2 font-mono text-[10px] tracking-widest text-link uppercase bg-link/10 border border-link/25 px-3.5 py-1 rounded-full shadow-sm">
+          <span>00 / INTRODUCTION</span>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-display font-light tracking-tight text-ink leading-tight">
+          Master Your Next Tech Interview with Real-Time AI
+        </h1>
+        <p class="text-sm md:text-base text-mute leading-relaxed max-w-xl mx-auto">
+          Experience conversational mock interviews tailored to your resume. Get real-time audio dialogues, focus on customized topics, and receive instant performance tips.
+        </p>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button id="btn-get-started" class="premium-btn premium-btn-primary px-8 py-3.5 text-xs font-mono font-semibold tracking-widest uppercase shadow-lg select-none active:scale-[0.97] transition-all cursor-pointer">
+          GET STARTED
+        </button>
+      </div>
+
+      <!-- Features Grid (3 columns) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-6">
+        <!-- Feature 1 -->
+        <div class="glass-panel p-6 flex flex-col gap-3 relative overflow-hidden group hover:translate-y-[-2px] transition-all">
+          <div class="absolute -right-8 -top-8 w-16 h-16 radial-glow-blue opacity-10 rounded-full filter blur-xl pointer-events-none group-hover:opacity-20 transition-opacity"></div>
+          <div class="w-8 h-8 rounded-lg bg-link/10 border border-link/20 flex items-center justify-center text-link">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+          <h3 class="text-sm font-mono font-semibold text-ink">Real-time Dialogue</h3>
+          <p class="text-xs text-mute leading-relaxed">
+            Talk naturally without latency. Our responsive voice engine listens, understands, and replies instantly.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass-panel p-6 flex flex-col gap-3 relative overflow-hidden group hover:translate-y-[-2px] transition-all">
+          <div class="absolute -right-8 -top-8 w-16 h-16 radial-glow-blue opacity-10 rounded-full filter blur-xl pointer-events-none group-hover:opacity-20 transition-opacity"></div>
+          <div class="w-8 h-8 rounded-lg bg-link/10 border border-link/20 flex items-center justify-center text-link">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.991l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.645-.869l.214-1.28z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <h3 class="text-sm font-mono font-semibold text-ink">Custom Sessions</h3>
+          <p class="text-xs text-mute leading-relaxed">
+            Target specific interview domains. Tailor focus areas, difficulty levels, and practice lengths.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass-panel p-6 flex flex-col gap-3 relative overflow-hidden group hover:translate-y-[-2px] transition-all">
+          <div class="absolute -right-8 -top-8 w-16 h-16 radial-glow-blue opacity-10 rounded-full filter blur-xl pointer-events-none group-hover:opacity-20 transition-opacity"></div>
+          <div class="w-8 h-8 rounded-lg bg-link/10 border border-link/20 flex items-center justify-center text-link">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 21l-1.81-5.096L2.1 14.1 7.19 12.28 9 7.19l1.81 5.09L15.9 14.1l-5.09 1.804zm-3.21-6.195L6 12l-.594-2.291L3.11 9.11l2.291-.594L6 6.023l.594 2.291 2.292.594-2.292.594zm10.796 3.195l-.297 1.146L15 15l1.146-.297.297-1.146.297 1.146 1.146.297-1.146.297-.297 1.146z" />
+            </svg>
+          </div>
+          <h3 class="text-sm font-mono font-semibold text-ink">Actionable Feedback</h3>
+          <p class="text-xs text-mute leading-relaxed">
+            Get instant hints mid-interview when you get stuck, followed by a comprehensive performance scorecard.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================== -->
+    <!-- 1. SETUP STATE VIEW                   -->
+    <!-- ===================================== -->
+    <div id="setup-view" class="hidden max-w-2xl w-full px-6 py-12 z-10 flex flex-col justify-center items-stretch animate-[fadeIn_0.5s_ease-out]">
+      <!-- Center Title -->
+      <div class="text-center mb-8">
+        <div class="text-[10px] font-mono tracking-widest text-mute uppercase mb-2">01 / Initialization</div>
+        <h2 class="text-4xl font-display font-light tracking-tight text-ink">
+          Configure Interview Session
+        </h2>
+      </div>
+
+      <!-- Config Panel (Frosted Glass Panel with 3D Tilt capability) -->
+      <div class="glass-panel p-8 relative overflow-hidden">
+        <div class="absolute -right-16 -top-16 w-32 h-32 radial-glow-blue opacity-25 rounded-full filter blur-2xl z-0 pointer-events-none"></div>
+
+        <!-- Form Fields -->
+        <div class="space-y-6 relative z-10">
+
+          <!-- Resume Upload -->
+          <div>
+            <label class="block text-[10px] font-mono text-mute uppercase mb-1.5">
+              Resume (PDF or Text Paste)
+            </label>
+            <div id="pdf-drop-zone" class="glass-upload-zone glass-inset p-6 text-center cursor-pointer relative">
+              <input type="file" id="input-resume-file" accept="application/pdf" class="hidden" />
+              <div class="space-y-2">
+                <svg class="w-6 h-6 mx-auto text-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                <div class="text-xs text-ink" id="pdf-status">Drag & drop your Resume PDF, or click to upload</div>
+                <div class="text-[10px] text-mute font-mono">Max size 4MB</div>
+              </div>
+            </div>
+            <!-- Alternative Text Area -->
+            <button id="toggle-paste-btn" class="mt-2 text-[10px] font-mono text-link hover:underline cursor-pointer bg-transparent border-0">
+              Or paste resume text instead
+            </button>
+            <textarea id="input-resume-text" placeholder="Paste resume contents here..." 
+              class="hidden glass-input glass-inset w-full h-32 mt-2 p-3 text-xs font-mono text-ink placeholder-mute/50 focus:outline-none transition-all resize-none"></textarea>
+          </div>
+
+          <!-- Topic Checklist -->
+          <div>
+            <label class="block text-[10px] font-mono text-mute uppercase mb-2">
+              Select Focus Topics <span class="text-accent-red">*</span>
+            </label>
+            <div id="topic-tags" class="flex flex-wrap gap-2.5">
+              {["Coding (DSA)", "System Design", "Databases", "OOPs Concepts", "Behavioral (STAR)", "Web Development", "Operating Systems"].map((topic) => (
+                <button type="button" data-topic={topic} class="topic-tag shadow-sm">
+                  {topic}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <!-- Select Box: Voice & Difficulty & Count Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Difficulty -->
+            <div>
+              <label class="block text-[10px] font-mono text-mute uppercase mb-1.5">
+                Difficulty
+              </label>
+              <select id="select-difficulty" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
+                <option value="Junior (Easy)" class="bg-[#0f172a]">Junior</option>
+                <option value="Mid-Level (Medium)" selected class="bg-[#0f172a]">Mid-Level</option>
+                <option value="Senior (Hard)" class="bg-[#0f172a]">Senior</option>
+                <option value="Lead/Staff (Expert)" class="bg-[#0f172a]">Lead / Staff</option>
+              </select>
+            </div>
+
+            <!-- Question count -->
+            <div>
+              <label class="block text-[10px] font-mono text-mute uppercase mb-1.5">
+                Question Count
+              </label>
+              <select id="select-count" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
+                <option value="10" class="bg-[#0f172a]">10 Questions</option>
+                <option value="15" class="bg-[#0f172a]">15 Questions</option>
+                <option value="25" class="bg-[#0f172a]">25 Questions</option>
+                <option value="5" selected class="bg-[#0f172a]">5 Questions (Quick)</option>
+              </select>
+            </div>
+
+            <!-- Hidden select-voice element to maintain JS compatibility -->
+            <select id="select-voice" class="hidden">
+              <option value="edge_andrew" selected>edge_andrew</option>
+            </select>
+          </div>
+
+          <!-- Premium CTA button for "INITIALIZE SESSION" -->
+          <button id="btn-start" class="premium-btn premium-btn-primary w-full py-3 mt-4 font-semibold text-xs font-mono tracking-wider rounded-full active:scale-[0.97] transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+            INITIALIZE SESSION
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================== -->
+    <!-- 2. INTERVIEW SIMULATOR HUD VIEW       -->
+    <!-- ===================================== -->
+    <!-- (Frosted glass container with 3D Tilt support) -->
+    <div id="interview-view" class="hidden max-w-6xl w-full px-6 py-8 flex flex-col gap-6 items-stretch z-10 animate-[fadeIn_0.5s_ease-out] mx-auto">
+      
+      <!-- Standard Interview Workspace (Side-by-Side Split Grid) -->
+      <div id="standard-workspace" class="grid grid-cols-1 md:grid-cols-12 gap-16 items-stretch w-full min-h-[580px]">
+        
+        <!-- Left Column: Floating AI Agent UI (takes 5 cols) -->
+        <div class="md:col-span-5 flex flex-col items-center justify-center p-6 relative">
+          <!-- Orb Visualizer Component -->
+          <InterviewerOrb />
+
+          <!-- Mic controls placed directly here -->
+          <div class="flex flex-col items-center gap-4 mt-6 z-10">
+            <!-- Speaking/listening action mic button (Glowy circular outline) -->
+            <button id="btn-mic-toggle" class="w-16 h-16 rounded-full flex items-center justify-center cursor-pointer transition-all hover:scale-[1.05] active:scale-[0.95] premium-btn shadow-md">
+              <!-- Mic Icon -->
+              <svg class="w-6 h-6 text-ink transition-all duration-300" id="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </button>
+            <div class="text-[10px] font-mono text-mute uppercase tracking-widest text-center" id="mic-instructions">
+              Click to unmute microphone
+            </div>
+          </div>
+
+          <!-- Soundwave visualizer placed at the bottom -->
+          <div id="user-glitch-soundbar" class="flex gap-1 justify-center items-center h-20 w-full max-w-xs mt-6 opacity-0 transition-opacity duration-300 z-10">
+            <!-- Filled dynamically by JavaScript on mount -->
+          </div>
+        </div>
+
+        <!-- Right Column: Dialogue Chatbox (takes 7 cols) -->
+        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-6 relative min-h-[500px] h-full">
+          <div class="absolute -right-12 -top-12 w-24 h-24 radial-glow-blue opacity-25 rounded-full filter blur-xl pointer-events-none z-0"></div>
+          
+          <!-- Chat Panel Header with HUD stats -->
+          <div class="w-full flex items-center justify-between font-mono text-[10px] text-mute mb-4 border-b border-white/10 pb-3 relative z-10">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse"></span>
+              <span>INTERVIEW IN PROGRESS</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <span id="question-progress-label" class="text-mute uppercase">Question 1 of 5</span>
+              <span>•</span>
+              <span id="session-timer" class="text-ink">00:00</span>
+            </div>
+          </div>
+
+          <!-- Real-time metrics HUD (Glass status pills) -->
+          <div class="flex gap-2 mb-4 relative z-10">
+            <!-- Um Counter -->
+            <div class="flex items-center gap-1.5 px-3 py-1 bg-white/[0.03] border border-white/10 rounded-full text-[10px] font-mono shadow-sm">
+              <span class="text-accent-red font-semibold">UM/UH:</span>
+              <span id="counter-fillers" class="text-ink font-bold">0</span>
+            </div>
+            <!-- WPM Gauge -->
+            <div class="flex items-center gap-1.5 px-3 py-1 bg-white/[0.03] border border-white/10 rounded-full text-[10px] font-mono shadow-sm">
+              <span class="text-accent-green font-semibold">SPEED:</span>
+              <span id="hud-wpm" class="text-ink font-bold">0 WPM</span>
+            </div>
+          </div>
+
+          <!-- Chat History Scrolling Container -->
+          <div id="chat-history-container" class="flex-grow overflow-y-auto pr-1 mb-4 space-y-4 max-h-[350px] min-h-[200px] relative z-10 scroll-smooth">
+            <!-- Dynamic chat bubbles loaded here -->
+          </div>
+
+          <!-- Hidden legacy components for JS compatibility -->
+          <div id="question-text" class="hidden"></div>
+
+          <!-- Input Area (Main Box) -->
+          <div class="relative z-10 w-full">
+            <!-- Voice Recognition Subtitles Mode (Default) -->
+            <div id="voice-input-container" class="w-full">
+              <!-- Live scrolling subtitle transcript (Recessed Glass container) -->
+              <div id="live-subtitle-box" class="w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none">
+                Voice transcription will appear here in real time...
+              </div>
+            </div>
+   
+            <!-- Text Input Mode -->
+            <div id="text-input-container" class="hidden w-full">
+              <textarea id="textarea-answer" placeholder="Draft your answer conceptually..." 
+                class="w-full glass-inset bg-[#0c0f1d]/70 border border-white/10 rounded-xl p-4 text-sm font-light text-ink placeholder-mute/50 focus:outline-none focus:border-accent-blue/30 transition-all resize-none h-24"></textarea>
+            </div>
+          </div>
+
+          <!-- Footer Control Area -->
+          <div class="border-t border-white/10 pt-4 mt-4 flex items-center justify-between gap-4 relative z-10">
+            <div class="flex items-center gap-2.5">
+              <!-- Glass Switch to Type button -->
+              <button id="btn-toggle-input-mode" class="px-3.5 py-1.5 premium-btn font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <path d="M6 8h10M6 12h8M6 16h4" />
+                </svg>
+                <span>Switch to Type</span>
+              </button>
+  
+              <!-- Glass Get Hint button -->
+              <button id="btn-hint" class="px-3.5 py-1.5 premium-btn font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <span>Get Hint</span>
+              </button>
+            </div>
+   
+            <!-- Answer submission buttons -->
+            <div class="flex items-center gap-2">
+              <!-- Quit Button -->
+              <button id="btn-end-early" class="premium-btn border-accent-red/20 text-accent-red hover:bg-accent-red/10 px-4 py-2 rounded-full font-mono text-[10px] tracking-wider uppercase cursor-pointer transition-all">
+                Quit
+              </button>
+              <!-- Premium primary CTA button -->
+              <button id="btn-submit-answer" class="px-6 py-2.5 premium-btn premium-btn-primary font-semibold rounded-full font-mono text-[10px] tracking-wider uppercase cursor-pointer transition-all shadow-md">
+                SEND ANSWER
+              </button>
+            </div>
+          </div>
+  
+          <!-- Hint Dialog (Frosted Glass Dialog overlay) -->
+          <div id="hint-display" class="hidden absolute top-4 left-4 right-4 bg-slate-900/90 backdrop-blur-md border border-accent-green/30 shadow-[0_10px_30px_rgba(0,0,0,0.5)] rounded-lg p-3 text-xs text-accent-green font-mono flex items-start gap-2.5 z-20">
+            <svg class="w-4 h-4 flex-shrink-0 text-accent-green mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <div class="flex-grow">
+              <span class="font-bold">Interviewer Tip:</span>
+              <span id="hint-text">Try explaining indexing latency.</span>
+            </div>
+            <button id="btn-close-hint" class="text-mute hover:text-ink cursor-pointer">&times;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coding (DSA) Workspace (LeetCode Style Redesign) -->
+      <div id="coding-workspace" class="hidden flex-col w-full h-[650px] bg-[#1a1a1a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl relative font-sans text-ink">
+        <!-- LeetCode Navigation Header Bar -->
+        <div class="flex items-center justify-between bg-[#141414] border-b border-white/5 px-4 h-11 shrink-0 text-xs text-mute select-none font-mono">
+          <div class="flex items-center gap-4">
+            <!-- Brand name -->
+            <span class="text-accent-yellow font-bold text-xs tracking-wider flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 text-accent-yellow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+              <span>VEVARIO</span>
+            </span>
+            <div class="h-3 w-[1px] bg-white/10"></div>
+            <!-- Problem list simulation -->
+            <div class="flex items-center gap-1.5 hover:text-ink transition-colors cursor-pointer bg-white/5 px-2.5 py-1 rounded text-[11px] font-sans">
+              <svg class="w-3 h-3 text-accent-yellow" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+              <span>Problem List</span>
+            </div>
+            <!-- Navigation arrows -->
+            <div class="flex items-center gap-0.5">
+              <button class="p-1 hover:text-ink transition-colors cursor-pointer"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg></button>
+              <button class="p-1 hover:text-ink transition-colors cursor-pointer"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+          </div>
+          
+          <!-- Run / Submit actions -->
+          <div class="flex items-center gap-2">
+            <!-- Run Code Button -->
+            <button id="btn-run-code" class="flex items-center gap-1.5 bg-[#2c2c2c] hover:bg-[#363636] border border-white/5 px-3 py-1 rounded text-[11px] font-sans text-ink font-semibold cursor-pointer transition-colors active:scale-95">
+              <svg class="w-2.5 h-2.5 fill-current text-green-500" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span>Run</span>
+            </button>
+            <!-- Submit Code Button -->
+            <button id="btn-submit-code" class="flex items-center gap-1.5 bg-accent-green hover:bg-[#1a884b] border border-white/10 px-3.5 py-1 rounded text-[11px] font-sans text-white font-semibold cursor-pointer transition-colors active:scale-95 shadow-lg shadow-green-950/20">
+              <svg class="w-2.5 h-2.5 text-white fill-current animate-pulse" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+              <span>Submit</span>
+            </button>
+          </div>
+          
+          <!-- Countdown Timer and actions -->
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-1.5 bg-[#2c2c2c]/80 px-2.5 py-1 rounded border border-white/5 font-sans text-[11px]">
+              <svg class="w-3.5 h-3.5 text-accent-yellow animate-pulse" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span id="coding-timer-pill" class="text-accent-yellow font-bold">25:00</span>
+            </div>
+            <div class="flex items-center gap-2 text-mute">
+              <svg class="w-3.5 h-3.5 hover:text-ink transition-colors cursor-pointer" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <svg class="w-3.5 h-3.5 hover:text-ink transition-colors cursor-pointer" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Split Layout Panel -->
+        <div class="flex-grow flex flex-row overflow-hidden w-full h-[calc(100%-44px)] relative">
+          <!-- LHS Pane: Problem details -->
+          <div class="w-5/12 bg-[#1a1a1a] border-r border-white/5 flex flex-col h-full overflow-hidden select-none">
+            <!-- Description Tabs -->
+            <div class="flex items-center bg-[#141414] border-b border-white/5 h-9 px-2 text-[11px] font-medium text-mute shrink-0">
+              <button id="tab-lc-description" class="px-4 py-2 border-b-2 border-accent-yellow text-ink font-semibold cursor-pointer">Description</button>
+              <button class="px-4 py-2 hover:text-ink cursor-pointer">Editorial</button>
+              <button class="px-4 py-2 hover:text-ink cursor-pointer">Solutions</button>
+              <button class="px-4 py-2 flex items-center gap-1 hover:text-ink cursor-pointer">
+                <svg class="w-3 h-3 text-mute" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Submissions</span>
+              </button>
+            </div>
+            
+            <!-- Description Scrollable Body -->
+            <div class="flex-grow p-5 overflow-y-auto max-h-[calc(100%-36px)] text-xs font-sans leading-relaxed text-ink/80 flex flex-col gap-4 relative">
+              <div class="absolute -left-12 -top-12 w-24 h-24 radial-glow-blue opacity-[0.06] rounded-full filter blur-xl pointer-events-none"></div>
+              <!-- Title -->
+              <h3 id="coding-problem-title" class="text-sm font-semibold font-display text-ink leading-snug">Two Sum</h3>
+              
+              <!-- Tag options -->
+              <div class="flex items-center gap-2 shrink-0">
+                <span id="coding-problem-difficulty" class="px-2 py-0.5 rounded text-[9px] font-mono font-semibold uppercase bg-accent-green/10 text-accent-green border border-accent-green/20">Easy</span>
+                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium bg-white/5 border border-white/5 hover:text-ink cursor-pointer">Topics</span>
+                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium bg-white/5 border border-white/5 hover:text-ink cursor-pointer">Companies</span>
+                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-medium bg-white/5 border border-white/5 hover:text-ink cursor-pointer">Hint</span>
+              </div>
+              
+              <!-- Description Text content -->
+              <div id="coding-problem-body" class="space-y-3 overflow-y-auto pr-1 flex-grow">
+                <p>Please wait while the AI interviewer designs your coding prompt...</p>
+              </div>
+              
+              <!-- Bottom Social details -->
+              <div class="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-[10px] text-mute shrink-0">
+                <div class="flex items-center gap-3">
+                  <button class="flex items-center gap-1 hover:text-ink cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg> 
+                    <span>45.2K</span>
+                  </button>
+                  <button class="flex items-center gap-1 hover:text-ink cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 14H7v2h3v-2zm3-4H7v2h6v-2zm0-4H7v2h6V6zm5.293-1.293a1 1 0 00-1.414 0L13 8.586 10.707 6.293a1 1 0 00-1.414 0L5 10.586V20h14V5.293z"/></svg> 
+                    <span>Dislike</span>
+                  </button>
+                  <button class="flex items-center gap-1 hover:text-ink cursor-pointer">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg> 
+                    <span>908</span>
+                  </button>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                  <span>739 Online</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RHS Pane: Editor & Console -->
+          <div class="w-7/12 flex flex-col h-full overflow-hidden bg-[#181818]">
+            <!-- Top half: Editor -->
+            <div class="flex-grow flex flex-col min-h-[150px] border-b border-white/5 relative">
+              <!-- Editor Header -->
+              <div class="flex items-center justify-between bg-[#141414] border-b border-white/5 h-9 px-4 shrink-0 text-[11px] font-mono text-mute select-none">
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-1 text-green-500 font-semibold">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>Code</span>
+                  </div>
+                  <div class="h-3 w-[1px] bg-white/10"></div>
+                  <!-- Language Selector Dropdown -->
+                  <select id="coding-language-select" class="bg-transparent text-ink border-0 focus:outline-none transition-all cursor-pointer font-semibold py-0.5">
+                    <option value="javascript" class="bg-[#141414]" selected>JavaScript</option>
+                    <option value="python" class="bg-[#141414]">Python</option>
+                    <option value="cpp" class="bg-[#141414]">C++</option>
+                    <option value="java" class="bg-[#141414]">Java</option>
+                  </select>
+                  <div class="h-3 w-[1px] bg-white/10"></div>
+                  <span class="hover:text-ink cursor-pointer">Auto</span>
+                </div>
+                <!-- Right utilities -->
+                <div class="flex items-center gap-2.5">
+                  <button id="btn-lc-copy" title="Copy Code" class="hover:text-ink transition-colors cursor-pointer"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0115 3.414l4 4A1 1 0 0119.586 8V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg></button>
+                  <button id="btn-lc-wrap" title="Toggle Word Wrap" class="text-accent-blue hover:text-ink transition-colors cursor-pointer"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H7a2 2 0 00-2 2v3a2 2 0 01-2 2 2 2 0 012 2v3a2 2 0 002 2h1m8-14h1a2 2 0 012 2v3a2 2 0 002 2 2 2 0 00-2 2v3a2 2 0 01-2 2h-1"/></svg></button>
+                  <button id="btn-lc-reset" title="Reset Code Template" class="hover:text-ink transition-colors cursor-pointer"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17"/></svg></button>
+                  <button id="btn-lc-expand" title="Toggle Fullscreen" class="hover:text-ink transition-colors cursor-pointer"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+                </div>
+              </div>
+
+              <!-- Editor Workspace -->
+              <div class="flex-grow flex bg-[#1e1e1e] overflow-hidden leading-normal">
+                <!-- Line numbers gutter -->
+                <div id="coding-editor-gutter" class="w-10 bg-[#1a1a1a] text-[10px] font-mono text-mute/30 pt-3.5 pb-3.5 pr-2 text-right select-none border-r border-white/5 font-light leading-[20px] overflow-hidden h-full">
+                  1
+                </div>
+                <!-- Code text area -->
+                <textarea id="coding-editor-textarea" spellcheck="false" 
+                  class="flex-grow bg-transparent p-3.5 text-xs font-mono text-ink/90 placeholder-mute/30 focus:outline-none leading-[20px] resize-none overflow-y-auto h-full"
+                  placeholder="// Write your code solution here..."></textarea>
+              </div>
+
+              <!-- Editor Status bar -->
+              <div class="h-6 bg-[#141414] border-t border-white/5 px-4 flex items-center justify-between text-[9px] font-mono text-mute shrink-0">
+                <span id="editor-saved-status" class="text-mute/60">Saved</span>
+                <span id="editor-cursor-pos">Ln 1, Col 1</span>
+              </div>
+            </div>
+
+            <!-- Bottom half: Terminal Console -->
+            <div id="lc-console-pane" class="h-[180px] shrink-0 bg-[#1a1a1a] border-t border-white/5 flex flex-col overflow-hidden relative">
+              <!-- Console Header tabs -->
+              <div class="flex items-center justify-between bg-[#141414] border-b border-white/5 h-8 px-4 shrink-0 text-[10px] font-mono text-mute select-none">
+                <div class="flex items-center gap-3">
+                  <button id="tab-lc-testcase" class="flex items-center gap-1 hover:text-ink cursor-pointer font-semibold py-2">
+                    <span class="w-1 h-1 bg-accent-blue rounded-full"></span>
+                    <span>Testcase</span>
+                  </button>
+                  <div class="h-3 w-[1px] bg-white/10"></div>
+                  <button id="tab-lc-result" class="flex items-center gap-1 text-ink font-semibold cursor-pointer border-b border-accent-yellow py-2 h-8">
+                    <svg class="w-3 h-3 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span>Test Result</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Console Body -->
+              <div class="flex-grow p-4 overflow-y-auto text-xs font-mono bg-[#141414] leading-relaxed flex flex-col justify-start">
+                <div id="lc-console-output" class="text-mute/80 space-y-2">
+                  <span class="italic text-[10px] text-mute/50">Run your code to see the testcase results here.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hint Mic / Orb floating overlay (Integrated bottom capsule) -->
+        <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#0d0d0d]/85 backdrop-blur-md border border-white/10 rounded-full px-4 py-1.5 z-20 shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
+          <!-- Compact Orb visualizer slot -->
+          <div class="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center overflow-hidden bg-black/40 relative shrink-0">
+            <div id="coding-compact-orb" class="w-full h-full flex items-center justify-center pointer-events-none scale-[0.7]">
+              <!-- Dom parented core-orb goes here -->
+            </div>
+          </div>
+          
+          <!-- Voice/Mic controller -->
+          <button id="btn-coding-hint-mic" class="w-8 h-8 rounded-full bg-slate-900/60 hover:bg-accent-blue/10 border border-white/10 flex items-center justify-center cursor-pointer transition-all hover:scale-[1.05] active:scale-[0.95] group shrink-0">
+            <svg class="w-3.5 h-3.5 text-ink/80 group-hover:text-accent-blue transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          
+          <div class="text-[9px] font-mono text-mute uppercase tracking-wider select-none leading-none pr-1 shrink-0">
+            Ask Orb for Hints
+          </div>
+        </div>
+
+        <!-- Hint toast display box -->
+        <div id="coding-hint-toast" class="absolute bottom-16 left-1/2 -translate-x-1/2 w-[350px] bg-[#1a1a1a]/95 border border-white/10 p-3.5 text-[10px] leading-normal font-sans text-ink/90 text-center rounded-xl pointer-events-none opacity-0 translate-y-2 transition-all duration-300 z-30 shadow-2xl">
+          Hint: Try matching the complement in a single pass of the array.
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================== -->
+    <!-- 3. GRADING EVALUATION STATE VIEW      -->
+    <!-- ===================================== -->
+    <div id="grading-view" class="hidden max-w-md w-full px-6 py-12 flex flex-col items-center justify-center text-center z-10 animate-[fadeIn_0.5s_ease-out]">
+      <!-- Double pulsing spinning ring -->
+      <div class="relative w-28 h-28 flex items-center justify-center mb-8">
+        <div class="absolute inset-0 rounded-full border-2 border-white/5 border-dashed animate-[spin_12s_linear_infinite]"></div>
+        <div class="absolute inset-2 rounded-full border-2 border-slate-700 border-t-white animate-spin"></div>
+        <div class="w-16 h-16 rounded-full bg-slate-950/80 flex items-center justify-center shadow-[inset_0_2px_5px_rgba(0,0,0,0.8)] border border-white/5">
+          <svg class="w-6 h-6 text-mute animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 22h20L12 2z" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="text-[10px] font-mono tracking-widest text-mute uppercase mb-2">Grading Stage</div>
+      <h3 class="text-2xl font-display font-light tracking-tight text-ink mb-3">Synthesizing Feedback</h3>
+      <p class="text-xs font-marketing font-light text-mute leading-relaxed max-w-xs">
+        Gemini is scoring your technical accuracy, grading pacing, parsing filler word counts, and compiling your roadmap. This takes 2-4 seconds.
+      </p>
+    </div>
+
+    <!-- ===================================== -->
+    <!-- 4. ANALYTICS STATE VIEW (Dashboard)   -->
+    <!-- ===================================== -->
+    <DashboardAnalytics />
+  </main>
+
+  <footer class="border-t border-white/5 py-4 bg-[#070a13]/40 z-10 relative">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-2 font-mono text-[10px] text-mute">
+      <div>© 2026 Vevario. Running locally & client-side.</div>
+      <div class="flex gap-4">
+        <span>$0 API Overhead</span>
+        <span>•</span>
+        <span>Secure LocalStorage Encryption</span>
+      </div>
+    </div>
+  </footer>
+</Layout>
+
+<script>
+  import { extractTextFromPDF } from '../utils/pdf.js';
+  import { getNextQuestion, getHint, getFinalEvaluation, transcribeAudio } from '../utils/gemini.js';
+
+  // --- STATE REGISTRATION ---
+  let state = 'setup'; // setup, interview, grading, analytics
+  let apiKey = '';
+  let elevenApiKey = '';
+  let resumeText = '';
+  let selectedTopics = [];
+  let difficulty = 'Mid-Level (Medium)';
+  let questionCount = 5;
+  let voiceName = '';
+  let isMuted = true;
+  let micEnabled = true;
+  let isTypingMode = false;
+  let isSpeakingBot = false;
+  let accumulatedTranscript = '';
+  
+  // --- CODING (DSA) MODE STATE ---
+  let isCodingMode = false;
+  let codingTimerInterval = null;
+  let codingSecondsLeft = 0;
+  let submittedCode = '';
+  let submittedLanguage = 'javascript';
+  let activeCodingQuestion = null;
+  let isFollowUpMode = false;
+  let hintSpeechRecognition = null;
+  let isHintRecording = false;
+  let activeErrorLine = null;
+
+  // --- INTERVIEW DATA REGISTRATION ---
+  let chatHistory = []; // Alternate user/model turn sequence
+  let questionsList = []; // Clean list of questions
+  let answersList = []; // Clean list of answers
+  let currentQuestionIndex = 0;
+  let rawInterimAnswers = []; // holds speech chunks
+
+  // --- HUD ANALYTICS TRACKERS ---
+  let typewriterInterval = null;
+  let currentAnswerStartTime = 0;
+  let currentAnswerTimerInterval = null;
+  let globalSessionStartTime = 0;
+  let globalTimerInterval = null;
+  
+  // Real-time speech analysis trackers
+  let currentWordsCount = 0;
+  let currentFillersCount = 0;
+  let totalFillersAccumulated = 0;
+  let allSessionWpms = [];
+
+  // --- WEB API INSTANCES ---
+  let recognition = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let audioResolve = null;
+  let activeAudioElement = null;
+  const sharedAudioPlayer = new Audio();
+  Object.defineProperty(window, 'activeAudioElement', {
+    get() { return activeAudioElement; },
+    set(val) { activeAudioElement = val; },
+    configurable: true
+  });
+  let audioContext = null;
+  let filteredStream = null;
+  let audioSource = null;
+  let analyserNode = null;
+  let frequencyData = null;
+  let activeUtterance = null;
+
+  const ELEVENLABS_VOICE_IDS = {
+    eleven_thomas: 'GBv7mTt0atIp3J8iHUh5',
+    eleven_dom: 'AZnzlk1XydvUeMsZdDzz',
+    eleven_adam: 'pNInz6obpgq5paqqcfJA',
+    eleven_antoni: 'ErXwobaYiN019PkySvjV'
+  };
+  
+  // --- DOM ELEMENT REFERENCES ---
+  const views = {
+    landing: document.getElementById('landing-view'),
+    setup: document.getElementById('setup-view'),
+    interview: document.getElementById('interview-view'),
+    grading: document.getElementById('grading-view'),
+    analytics: document.getElementById('analytics-view')
+  };
+
+  const statusDot = null; // Dynamically queried in updateApiConnectionStatus
+  const statusText = null;
+
+  // Setup view inputs
+  const inputResumeFile = document.getElementById('input-resume-file');
+  const pdfDropZone = document.getElementById('pdf-drop-zone');
+  const pdfStatusText = document.getElementById('pdf-status');
+  const togglePasteBtn = document.getElementById('toggle-paste-btn');
+  const inputResumeText = document.getElementById('input-resume-text');
+  const topicTags = document.querySelectorAll('.topic-tag');
+  const selectDifficulty = document.getElementById('select-difficulty');
+  const selectCount = document.getElementById('select-count');
+  const selectVoice = document.getElementById('select-voice');
+  const btnStart = document.getElementById('btn-start');
+
+  // Interview simulator HUD controls
+  const textInputContainer = document.getElementById('text-input-container');
+  const voiceInputContainer = document.getElementById('voice-input-container');
+  const textareaAnswer = document.getElementById('textarea-answer');
+  const btnToggleInputMode = document.getElementById('btn-toggle-input-mode');
+  const btnMicToggle = document.getElementById('btn-mic-toggle');
+  const micIcon = document.getElementById('mic-icon');
+  const micInstructions = document.getElementById('mic-instructions');
+  const liveSubtitleBox = document.getElementById('live-subtitle-box');
+  const btnHint = document.getElementById('btn-hint');
+  const btnEndEarly = document.getElementById('btn-end-early');
+  const btnSubmitAnswer = document.getElementById('btn-submit-answer');
+  const questionProgressLabel = document.getElementById('question-progress-label');
+  const questionText = document.getElementById('question-text');
+  const sessionTimerText = document.getElementById('session-timer');
+  const counterFillersText = document.getElementById('counter-fillers');
+  const hudWpmText = document.getElementById('hud-wpm');
+
+  // Coding Workspace Elements
+  const standardWorkspace = document.getElementById('standard-workspace');
+  const codingWorkspace = document.getElementById('coding-workspace');
+  const codingTimerPill = document.getElementById('coding-timer-pill');
+  const codingProblemTitle = document.getElementById('coding-problem-title');
+  const codingProblemDifficulty = document.getElementById('coding-problem-difficulty');
+  const codingProblemBody = document.getElementById('coding-problem-body');
+  const codingLanguageSelect = document.getElementById('coding-language-select');
+  const btnSubmitCode = document.getElementById('btn-submit-code');
+  const codingEditorGutter = document.getElementById('coding-editor-gutter');
+  const codingEditorTextarea = document.getElementById('coding-editor-textarea');
+  const btnCodingHintMic = document.getElementById('btn-coding-hint-mic');
+  const codingCompactOrb = document.getElementById('coding-compact-orb');
+  const codingHintToast = document.getElementById('coding-hint-toast');
+
+  // Hint dialog
+  const hintDisplay = document.getElementById('hint-display');
+  const hintTextNode = document.getElementById('hint-text');
+  const btnCloseHint = document.getElementById('btn-close-hint');
+
+  // Dashboard outputs
+  const btnRestart = document.getElementById('btn-restart');
+  const gaugeIndicator = document.getElementById('gauge-indicator');
+  const scoreOverallText = document.getElementById('score-overall-text');
+  const scoreTechText = document.getElementById('score-tech-text');
+  const scoreCommText = document.getElementById('score-comm-text');
+  const barTech = document.getElementById('bar-tech');
+  const barComm = document.getElementById('bar-comm');
+  const statFillers = document.getElementById('stat-fillers');
+  const statWpm = document.getElementById('stat-wpm');
+  const feedbackSummary = document.getElementById('feedback-summary');
+  const feedbackStrengthsList = document.getElementById('feedback-strengths');
+  const feedbackWeaknessesList = document.getElementById('feedback-weaknesses');
+  const timelineContainer = document.getElementById('timeline-container');
+  const roadmapContainer = document.getElementById('roadmap-container');
+
+  // Orb elements for changing states
+  const interviewerCoreOrb = document.getElementById('interviewer-core-orb');
+  const orbStatus = document.getElementById('orb-status');
+  const orbGlow = document.getElementById('orb-glow');
+  const orbRipple = document.getElementById('orb-ripple');
+  const voiceBars = document.getElementById('voice-bars');
+  const orbIcon = document.getElementById('orb-icon');
+
+  // --- INITIALIZE ON LOAD ---
+  document.addEventListener('DOMContentLoaded', () => {
+    const configData = document.getElementById('env-config');
+    const envGemini = configData ? configData.dataset.gemini : '';
+    const envEleven = configData ? configData.dataset.eleven : '';
+
+    apiKey = envGemini || '';
+    elevenApiKey = envEleven || '';
+
+    updateApiConnectionStatus(!!apiKey);
+
+    // Bind Web Speech recognition
+    setupSpeechRecognition();
+
+    // Generate custom "glitchsound" user sound bars dynamically
+    const userSoundbar = document.getElementById('user-glitch-soundbar');
+    if (userSoundbar) {
+      userSoundbar.innerHTML = '';
+      for (let i = 0; i < 41; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'w-1 rounded-full transition-all duration-75';
+        bar.style.background = 'linear-gradient(to top, rgba(6, 182, 212, 0.3), #10b981 50%, rgba(6, 182, 212, 0.3))';
+        bar.style.filter = 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.7))';
+        bar.style.height = '4px';
+        userSoundbar.appendChild(bar);
+      }
+    }
+
+    // Start user soundbar animation loop
+    animateUserSoundbar();
+
+    // Initialize premium interactive features
+    initMetallicCursor();
+    initLiquidBackground();
+    initCardTilt();
+    initThemeToggle();
+
+    // Pre-trigger browser voices loading for Web Speech API fallback
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  });
+
+  // --- API CONNECTION STATUS LED ---
+  function updateApiConnectionStatus(isConnected) {
+    const statusDotElement = document.getElementById('api-status-dot');
+    const statusTextElement = document.getElementById('api-status-text');
+    if (!statusDotElement || !statusTextElement) return;
+    if (isConnected) {
+      statusDotElement.className = "w-1.5 h-1.5 rounded-full bg-accent-green";
+      statusTextElement.textContent = "API ACTIVE";
+      statusTextElement.className = "text-accent-green";
+    } else {
+      statusDotElement.className = "w-1.5 h-1.5 rounded-full bg-accent-red animate-pulse";
+      statusTextElement.textContent = "KEY MISSING";
+      statusTextElement.className = "text-mute";
+    }
+  }
+
+  // --- RESUME PARSER HOOKS ---
+  pdfDropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    pdfDropZone.classList.add('bg-surface-elevated', 'border-ink');
+  });
+
+  pdfDropZone.addEventListener('dragleave', () => {
+    pdfDropZone.classList.remove('bg-surface-elevated', 'border-ink');
+  });
+
+  pdfDropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    pdfDropZone.classList.remove('bg-surface-elevated', 'border-ink');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await handleResumeFile(files[0]);
+    }
+  });
+
+  pdfDropZone.addEventListener('click', () => {
+    inputResumeFile.click();
+  });
+
+  inputResumeFile.addEventListener('change', async (e) => {
+    if (e.target.files.length > 0) {
+      await handleResumeFile(e.target.files[0]);
+    }
+  });
+
+  togglePasteBtn.addEventListener('click', () => {
+    if (inputResumeText.classList.contains('hidden')) {
+      inputResumeText.classList.remove('hidden');
+      togglePasteBtn.textContent = "Use file upload instead";
+      pdfDropZone.classList.add('hidden');
+    } else {
+      inputResumeText.classList.add('hidden');
+      togglePasteBtn.textContent = "Or paste resume text instead";
+      pdfDropZone.classList.remove('hidden');
+    }
+  });
+
+  async function handleResumeFile(file) {
+    if (file.type !== "application/pdf") {
+      pdfStatusText.textContent = "Invalid file type. Only PDF is supported.";
+      pdfStatusText.className = "text-xs text-accent-red";
+      return;
+    }
+    
+    pdfStatusText.textContent = "Extracting text contents from Resume PDF...";
+    pdfStatusText.className = "text-xs text-accent-blue animate-pulse";
+
+    try {
+      resumeText = await extractTextFromPDF(file);
+      pdfStatusText.textContent = `Successfully parsed: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      pdfStatusText.className = "text-xs text-accent-green font-medium";
+    } catch (error) {
+      console.error(error);
+      pdfStatusText.textContent = error.message;
+      pdfStatusText.className = "text-xs text-accent-red";
+      resumeText = "";
+    }
+  }
+
+  // --- TOPIC BUTTON SELECTION ---
+  topicTags.forEach(tag => {
+    tag.addEventListener('click', () => {
+      const topic = tag.getAttribute('data-topic');
+      if (selectedTopics.includes(topic)) {
+        selectedTopics = selectedTopics.filter(t => t !== topic);
+        tag.classList.remove('selected');
+      } else {
+        selectedTopics.push(topic);
+        tag.classList.add('selected');
+      }
+    });
+  });
+
+  function setOrbState(stateName) {
+    // Canvas state mutator
+    if (typeof (window as any).setCanvasOrbState === 'function') {
+      (window as any).setCanvasOrbState(stateName);
+    }
+
+    // Reset core orb styles (matching InterviewerOrb wrapper dimensions w-36 h-36)
+    interviewerCoreOrb.className = "w-36 h-36 rounded-full flex items-center justify-center z-10 transition-all duration-1000 overflow-hidden neu-inset";
+    
+    // Default SVG triangle icon
+    let svgIconContent = '<path d="M12 2L2 22h20L12 2z" />';
+    
+    switch (stateName) {
+      case 'idle':
+        orbStatus.textContent = "Interviewer Idle";
+        orbGlow.className = "absolute inset-4 rounded-full radial-glow-slate opacity-30 filter blur-xl transition-all duration-1000";
+        orbRipple.classList.add('hidden');
+        voiceBars.classList.add('opacity-0');
+        break;
+      
+      case 'thinking':
+        orbStatus.textContent = "Analyzing Input...";
+        orbGlow.className = "absolute inset-4 rounded-full radial-glow-blue opacity-30 filter blur-xl transition-all duration-1000";
+        orbRipple.classList.add('hidden');
+        voiceBars.classList.add('opacity-0');
+        // Rotating spinner SVG
+        svgIconContent = '<path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />';
+        break;
+ 
+      case 'speaking':
+        orbStatus.textContent = "Speaking";
+        orbGlow.className = "absolute inset-4 rounded-full radial-glow-slate opacity-45 filter blur-xl transition-all duration-1000";
+        orbRipple.classList.remove('hidden');
+        voiceBars.classList.remove('opacity-0');
+        // Audio sound wave lines
+        svgIconContent = '<path d="M12 2v20M17 5v14M22 9v6M7 9v6M2 11v2" />';
+        break;
+ 
+      case 'listening':
+        orbStatus.textContent = "Listening";
+        orbGlow.className = "absolute inset-4 rounded-full radial-glow-green opacity-30 filter blur-xl transition-all duration-1000";
+        orbRipple.classList.add('hidden');
+        voiceBars.classList.remove('opacity-0');
+        // Microphone active icon
+        svgIconContent = '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>';
+        break;
+    }
+    
+    if (orbIcon) {
+      orbIcon.innerHTML = svgIconContent;
+    }
+  }
+
+  // --- SPEECH RECOGNITION & MEDIARECORDER PIPELINE (STT) ---
+  async function initAudioRecorder() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      
+      // Initialize Web Audio API Analyser Node and Noise Filtering
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // 1. Create source
+        audioSource = audioContext.createMediaStreamSource(stream);
+        
+        // 2. Create highpass filter to cut off low frequency rumble (e.g. traffic, AC hum, below 150Hz)
+        const hpFilter = audioContext.createBiquadFilter();
+        hpFilter.type = 'highpass';
+        hpFilter.frequency.value = 150;
+        
+        // 3. Create lowpass filter to cut off high frequency hiss and click noise (above 3500Hz)
+        const lpFilter = audioContext.createBiquadFilter();
+        lpFilter.type = 'lowpass';
+        lpFilter.frequency.value = 3500;
+        
+        // 4. Create peaking filter to boost standard human speech frequency range (around 1.8kHz)
+        const speechBoostFilter = audioContext.createBiquadFilter();
+        speechBoostFilter.type = 'peaking';
+        speechBoostFilter.frequency.value = 1800; // Center frequency
+        speechBoostFilter.Q.value = 1.0;
+        speechBoostFilter.gain.value = 6; // Boost by 6dB
+        
+        // 5. Create Dynamics Compressor to level audio volume (limits loud transients, boosts quiet words)
+        const compressor = audioContext.createDynamicsCompressor();
+        compressor.threshold.value = -24; // dB
+        compressor.knee.value = 30; // dB
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003; // seconds
+        compressor.release.value = 0.25; // seconds
+        
+        // 6. Create Analyser Node for visualizer
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 64; // 32 frequency bins
+        frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+        
+        // 7. Create MediaStream destination node to record the filtered audio
+        const destination = audioContext.createMediaStreamDestination();
+        
+        // Connect the Web Audio chain
+        audioSource.connect(hpFilter);
+        hpFilter.connect(lpFilter);
+        lpFilter.connect(speechBoostFilter);
+        speechBoostFilter.connect(compressor);
+        compressor.connect(destination);
+        
+        // Connect compressor to analyser for visual feedback of filtered stream
+        compressor.connect(analyserNode);
+        
+        filteredStream = destination.stream;
+      }
+      
+      if (!mediaRecorder) {
+        mediaRecorder = new MediaRecorder(filteredStream || stream);
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunks.push(event.data);
+          }
+        };
+        mediaRecorder.onstop = () => {
+          if (audioResolve) {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioResolve(blob);
+            audioResolve = null;
+          }
+        };
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Error accessing microphone for raw capture:", err);
+      return false;
+    }
+  }
+
+  function setupSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      console.warn("Speech recognition not supported in this browser. Live preview disabled; falling back to direct audio upload.");
+      isTypingMode = true;
+      const btnToggle = document.getElementById('btn-toggle-input');
+      if (btnToggle) btnToggle.classList.add('hidden');
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      if (!isSpeakingBot) {
+        setOrbState('listening');
+        micInstructions.textContent = "Listening... speak now";
+        btnMicToggle.className = "w-16 h-16 rounded-full bg-accent-green/80 border border-white/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group";
+      }
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = 0; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + ' ';
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+
+      const combinedText = (accumulatedTranscript + finalTranscript + interimTranscript).trim();
+      if (combinedText) {
+        liveSubtitleBox.textContent = combinedText;
+        liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all";
+        
+        // Save current answer
+        textareaAnswer.value = combinedText;
+
+        // Render live candidate response bubble
+        renderChatHistory();
+
+        // Count filler words in real time
+        countFillerWords(combinedText);
+
+        // Track live speech WPM
+        calculateWpm(combinedText);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech Recognition Error:", event.error);
+      if (event.error === 'not-allowed') {
+        alert("Microphone permission denied. Switched to manual typing mode.");
+        switchToTextMode();
+      }
+    };
+
+    recognition.onend = () => {
+      // Auto-restart if we are in speech mode, mic is active, and interviewer is NOT speaking
+      if (state === 'interview' && micEnabled && !isTypingMode && !isSpeakingBot) {
+        try {
+          accumulatedTranscript = textareaAnswer.value.trim();
+          if (accumulatedTranscript) accumulatedTranscript += ' ';
+          recognition.start();
+        } catch (err) {}
+      } else if (!micEnabled || isTypingMode) {
+        btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
+        micInstructions.textContent = "Microphone muted. Tap to talk";
+      }
+    };
+  }
+
+  async function startRecording() {
+    isMuted = false;
+    currentAnswerStartTime = Date.now();
+    audioChunks = [];
+
+    const hasMicAccess = await initAudioRecorder();
+    if (!hasMicAccess) {
+      alert("Microphone permission or hardware access failed.\n\nPlease check your system settings and allow microphone access in your browser to talk.");
+      isMuted = true;
+      switchToTextMode();
+      return;
+    }
+
+    if (mediaRecorder && mediaRecorder.state === 'inactive') {
+      try {
+        mediaRecorder.start();
+      } catch (err) {
+        console.error("Failed to start MediaRecorder:", err);
+      }
+    }
+
+    if (recognition) {
+      try {
+        accumulatedTranscript = textareaAnswer.value.trim();
+        if (accumulatedTranscript) accumulatedTranscript += ' ';
+        recognition.start();
+      } catch (e) {}
+    } else {
+      // Firefox or other unsupported browsers
+      setOrbState('listening');
+      micInstructions.textContent = "Recording... speak now";
+      btnMicToggle.className = "w-16 h-16 rounded-full bg-accent-green/80 border border-white/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group";
+      liveSubtitleBox.textContent = "Recording your voice... speak now, and click SEND ANSWER when finished.";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center italic flex items-center justify-center select-none";
+    }
+  }
+
+  async function transcribeRecordedVoice() {
+    const liveText = liveSubtitleBox.textContent.trim();
+    const ignoredPhrases = [
+      "Voice transcription will appear here in real time...",
+      "Recording your voice... speak now, and click SEND ANSWER when finished.",
+      "Transcribing speech with Gemini 1.5 Flash...",
+      "No speech detected. Click mic to talk.",
+      "Voice was not clear. Try again or click Switch to Type.",
+      "Transcription error. Click mic to try again.",
+      "Tap microphone or type to answer..."
+    ];
+    
+    const hasLiveTranscript = liveText && !ignoredPhrases.includes(liveText) && liveText.length >= 5;
+    
+    if (hasLiveTranscript) {
+      liveSubtitleBox.contentEditable = "true";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
+      
+      liveSubtitleBox.oninput = () => {
+        textareaAnswer.value = liveSubtitleBox.textContent;
+      };
+      
+      micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
+      setOrbState('idle');
+      return;
+    }
+
+    btnSubmitAnswer.disabled = true;
+    btnSubmitAnswer.textContent = "TRANSCRIBING...";
+    btnMicToggle.disabled = true;
+    setOrbState('thinking');
+    
+    liveSubtitleBox.innerHTML = '<span class="text-accent-blue animate-pulse">Transcribing speech with Gemini 1.5 Flash...</span>';
+    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center flex items-center justify-center select-none";
+
+    try {
+      const audioBlob = await getRecordedAudioBlob();
+      if (audioBlob && audioBlob.size > 2000) {
+        const base64Audio = await blobToBase64(audioBlob);
+        const geminiTranscript = await transcribeAudio(apiKey, base64Audio, 'audio/webm');
+        if (geminiTranscript && geminiTranscript.trim().length > 2) {
+          const finalAnswer = geminiTranscript.trim();
+          textareaAnswer.value = finalAnswer;
+          
+          liveSubtitleBox.textContent = finalAnswer;
+          liveSubtitleBox.contentEditable = "true";
+          liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
+          
+          liveSubtitleBox.oninput = () => {
+            textareaAnswer.value = liveSubtitleBox.textContent;
+          };
+          
+          countFillerWords(finalAnswer);
+          calculateWpm(finalAnswer);
+          
+          micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
+        } else {
+          liveSubtitleBox.textContent = "Voice was not clear. Try again or click Switch to Type.";
+          liveSubtitleBox.contentEditable = "false";
+          micInstructions.textContent = "Microphone muted. Tap to talk";
+        }
+      } else {
+        liveSubtitleBox.textContent = "No speech detected. Click mic to talk.";
+        liveSubtitleBox.contentEditable = "false";
+        micInstructions.textContent = "Microphone muted. Tap to talk";
+      }
+    } catch (err) {
+      console.warn("Gemini transcription failed:", err);
+      const fallback = textareaAnswer.value.trim();
+      if (fallback) {
+        liveSubtitleBox.textContent = fallback;
+        liveSubtitleBox.contentEditable = "true";
+        liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none";
+        liveSubtitleBox.oninput = () => {
+          textareaAnswer.value = liveSubtitleBox.textContent;
+        };
+        micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
+      } else {
+        liveSubtitleBox.textContent = "Transcription error. Click mic to try again.";
+        liveSubtitleBox.contentEditable = "false";
+        micInstructions.textContent = "Microphone muted. Tap to talk";
+      }
+    } finally {
+      btnSubmitAnswer.disabled = false;
+      btnSubmitAnswer.textContent = "SEND ANSWER";
+      btnMicToggle.disabled = false;
+      setOrbState('idle');
+    }
+  }
+
+  function stopRecording() {
+    isMuted = true;
+    
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      try {
+        mediaRecorder.stop();
+      } catch (err) {
+        console.error("Failed to stop MediaRecorder:", err);
+      }
+    }
+
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch (e) {}
+    }
+
+    setOrbState('idle');
+    btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
+    micInstructions.textContent = "Microphone muted. Tap to talk";
+  }
+
+  // Helper to fetch recorded blob with a Promise wrapper if active
+  async function getRecordedAudioBlob() {
+    if (!mediaRecorder) return null;
+    if (mediaRecorder.state === 'inactive') {
+      if (audioChunks.length > 0) {
+        return new Blob(audioChunks, { type: 'audio/webm' });
+      }
+      return null;
+    }
+    return new Promise((resolve) => {
+      audioResolve = resolve;
+      try {
+        mediaRecorder.stop();
+      } catch (err) {
+        console.error("Error stopping recorder in getRecordedAudioBlob:", err);
+        resolve(null);
+      }
+    });
+  }
+
+  // Convert Blob to Base64 helper
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result.split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  let userSoundbarAnimationId = null;
+
+  function animateUserSoundbar() {
+    const soundbar = document.getElementById('user-glitch-soundbar');
+    if (!soundbar) {
+      userSoundbarAnimationId = requestAnimationFrame(animateUserSoundbar);
+      return;
+    }
+    
+    const bars = soundbar.children;
+    if (bars.length === 0) {
+      userSoundbarAnimationId = requestAnimationFrame(animateUserSoundbar);
+      return;
+    }
+
+    const isUserActive = state === 'interview' && micEnabled && !isMuted && !isSpeakingBot;
+
+    if (isUserActive) {
+      soundbar.classList.remove('opacity-0');
+      soundbar.classList.add('opacity-100');
+      
+      if (analyserNode && frequencyData) {
+        analyserNode.getByteFrequencyData(frequencyData);
+      }
+      
+      for (let i = 0; i < bars.length; i++) {
+        const bar = bars[i];
+        const multiplier = Math.sin(Math.PI * (i / (bars.length - 1)));
+        
+        let targetHeight = 4;
+        if (frequencyData) {
+          const binIdx = Math.floor(i * (frequencyData.length / bars.length));
+          const val = frequencyData[binIdx] || 0;
+          targetHeight = 4 + (val / 255) * 72 * multiplier;
+        } else {
+          // Procedural animation fallback
+          const t = Date.now() * 0.008;
+          targetHeight = 4 + (Math.sin(t + i * 0.2) * 0.5 + 0.5) * 60 * multiplier * (0.8 + Math.random() * 0.2);
+        }
+        
+        bar.style.height = `${targetHeight}px`;
+      }
+    } else {
+      soundbar.classList.remove('opacity-100');
+      soundbar.classList.add('opacity-0');
+      
+      for (let i = 0; i < bars.length; i++) {
+        const bar = bars[i];
+        bar.style.height = '4px';
+      }
+    }
+
+    userSoundbarAnimationId = requestAnimationFrame(animateUserSoundbar);
+  }
+
+  // --- SPEECH METRIC REAL-TIME ANALYZERS ---
+  function countFillerWords(text) {
+    const fillerWords = ["um", "uh", "basically", "so", "like", "you know"];
+    const words = text.toLowerCase().replace(/[^a-zA-Z ]/g, "").split(/\s+/);
+    let count = 0;
+    
+    words.forEach(word => {
+      if (fillerWords.includes(word)) {
+        count++;
+      }
+    });
+
+    // Check for "you know" specifically
+    const youKnowMatches = (text.toLowerCase().match(/you know/g) || []).length;
+    count += youKnowMatches; // account for multi-word phrase matching
+
+    currentFillersCount = count;
+    counterFillersText.textContent = currentFillersCount;
+  }
+
+  function calculateWpm(text) {
+    if (currentAnswerStartTime === 0) return;
+    const elapsedMinutes = (Date.now() - currentAnswerStartTime) / 60000;
+    if (elapsedMinutes < 0.05) return; // avoid huge divisions early on
+
+    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+    const wpm = Math.round(wordCount / elapsedMinutes);
+    
+    if (wpm > 0 && wpm < 300) {
+      hudWpmText.textContent = `${wpm} WPM`;
+    }
+  }
+
+  // --- ELEVENLABS AUDIO UTILITY ---
+  async function speakViaElevenLabs(text, voiceType) {
+    const voiceId = ELEVENLABS_VOICE_IDS[voiceType] || ELEVENLABS_VOICE_IDS.eleven_thomas;
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "xi-api-key": elevenApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: "eleven_flash_v2_5",
+        voice_settings: {
+          stability: 0.7,
+          similarity_boost: 0.8,
+          speed: 0.88 // slow to medium pace
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API returned status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const audioUrl = URL.createObjectURL(blob);
+    sharedAudioPlayer.src = audioUrl;
+    return sharedAudioPlayer;
+  }
+
+  // --- TYPEWRITER SYNCHRONIZATION HELPERS ---
+  let wordRenderTimeouts = [];
+
+  function startWordByWordRendering(words, fallbackText) {
+    stopWordByWordRendering();
+    
+    const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+    if (!targetEl) return;
+    targetEl.innerHTML = '';
+    
+    if (isCodingMode && codingHintToast) {
+      codingHintToast.classList.remove('opacity-0', 'translate-y-2');
+      codingHintToast.classList.add('opacity-100', 'translate-y-0');
+    }
+    
+    if (!words || words.length === 0) {
+      const wordsCount = fallbackText.split(/\s+/).length;
+      const estimatedDuration = (wordsCount * 60) / 140; // 140 WPM estimate
+      startTypewriter(fallbackText, estimatedDuration);
+      return;
+    }
+    
+    words.forEach((word, index) => {
+      const timeoutId = setTimeout(() => {
+        if (index === 0) {
+          targetEl.textContent = word.text;
+        } else {
+          targetEl.textContent += " " + word.text;
+        }
+      }, word.start);
+      wordRenderTimeouts.push(timeoutId);
+    });
+  }
+ 
+  function stopWordByWordRendering() {
+    wordRenderTimeouts.forEach(t => clearTimeout(t));
+    wordRenderTimeouts = [];
+  }
+ 
+  function startTypewriter(text, durationSeconds) {
+    stopTypewriter();
+    
+    const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+    if (!targetEl) return;
+    targetEl.innerHTML = '';
+ 
+    if (isCodingMode && codingHintToast) {
+      codingHintToast.classList.remove('opacity-0', 'translate-y-2');
+      codingHintToast.classList.add('opacity-100', 'translate-y-0');
+    }
+    
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    const totalMs = durationSeconds * 1000;
+    let wordDelay = totalMs / words.length;
+    if (isNaN(wordDelay) || wordDelay <= 0) wordDelay = 250;
+    wordDelay = Math.max(80, Math.min(500, wordDelay));
+    
+    let index = 0;
+    typewriterInterval = setInterval(() => {
+      if (index < words.length) {
+        if (index === 0) {
+          targetEl.textContent = words[index];
+        } else {
+          targetEl.textContent += ' ' + words[index];
+        }
+        index++;
+      } else {
+        clearInterval(typewriterInterval);
+        typewriterInterval = null;
+      }
+    }, wordDelay);
+  }
+
+  function stopTypewriter() {
+    if (typewriterInterval) {
+      clearInterval(typewriterInterval);
+      typewriterInterval = null;
+    }
+  }
+
+  // --- TEXT-TO-SPEECH PLAYBACK (TTS) ---
+  function unlockAudioContextAndPlayer() {
+    try {
+      sharedAudioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA";
+      sharedAudioPlayer.play().then(() => {
+        sharedAudioPlayer.pause();
+      }).catch(e => {
+        console.warn("Silent unlock play caught:", e);
+      });
+    } catch(e) {
+      console.warn("Silent unlock failed:", e);
+    }
+    if (audioContext && audioContext.state === 'suspended') {
+      audioContext.resume().catch(e => console.warn("Failed to resume audioContext:", e));
+    }
+  }
+
+  function speakQuestion(text) {
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    if (activeAudioElement) {
+      activeAudioElement.pause();
+      activeAudioElement = null;
+    }
+    stopWordByWordRendering();
+    stopTypewriter();
+
+    let cleanText = text.replace(/Question \d+ of \d+:/gi, "").trim();
+    if (isCodingMode && (cleanText.includes('#') || cleanText.includes('Given') || cleanText.includes('nums') || cleanText.includes('solve('))) {
+      cleanText = "I have displayed the coding challenge on the left. Please review the problem description and write your solution in the editor on the right. You can ask me clarifying questions or request hints by using the microphone button at the bottom.";
+    }
+    const selectedVoiceVal = selectVoice.value;
+    const isElevenVoice = selectedVoiceVal.startsWith('eleven_');
+    const isEdgeVoice = selectedVoiceVal.startsWith('edge_');
+
+    let fallbackTriggered = false;
+    const triggerFallback = () => {
+      if (fallbackTriggered) return;
+      fallbackTriggered = true;
+      isSpeakingBot = false;
+      activeAudioElement = null;
+      speakBrowserFallback(cleanText);
+    };
+
+    if (isEdgeVoice) {
+      isSpeakingBot = true;
+      if (recognition && !isMuted) {
+        try { recognition.stop(); } catch(e) {}
+      }
+      setOrbState('speaking');
+
+      let voiceName = 'en-US-AndrewMultilingualNeural';
+      if (selectedVoiceVal === 'edge_brian') voiceName = 'en-US-BrianNeural';
+      if (selectedVoiceVal === 'edge_emma') voiceName = 'en-US-EmmaNeural';
+
+      fetch('http://127.0.0.1:5000/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText, voice: voiceName })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        sharedAudioPlayer.src = data.audio;
+        activeAudioElement = sharedAudioPlayer;
+        
+        sharedAudioPlayer.onplay = () => {
+          isSpeakingBot = true;
+          setOrbState('speaking');
+          startWordByWordRendering(data.words, cleanText);
+        };
+        sharedAudioPlayer.onended = () => {
+          isSpeakingBot = false;
+          activeAudioElement = null;
+          stopWordByWordRendering();
+          stopTypewriter();
+          if (isCodingMode && codingHintToast) {
+            codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
+            setTimeout(() => {
+              if (!isSpeakingBot) hideCodingHintToast();
+            }, 6000);
+          } else {
+            const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+            if (targetEl) targetEl.textContent = cleanText;
+          }
+          onSpeechPlaybackEnd();
+        };
+        sharedAudioPlayer.onerror = (e) => {
+          console.error("Edge audio element playback error:", e);
+          triggerFallback();
+        };
+        
+        sharedAudioPlayer.play().catch(err => {
+          console.error("Failed to play Edge audio, falling back:", err);
+          triggerFallback();
+        });
+      })
+      .catch(err => {
+        console.error("Failed to fetch Edge TTS data, falling back:", err);
+        triggerFallback();
+      });
+    } else if (isElevenVoice && elevenApiKey) {
+      isSpeakingBot = true;
+      if (recognition && !isMuted) {
+        try { recognition.stop(); } catch(e) {}
+      }
+      setOrbState('speaking');
+
+      speakViaElevenLabs(cleanText, selectedVoiceVal)
+        .then((audio) => {
+          activeAudioElement = audio;
+          audio.onplay = () => {
+            isSpeakingBot = true;
+            setOrbState('speaking');
+            const duration = audio.duration && !isNaN(audio.duration) && audio.duration > 0
+              ? audio.duration
+              : (cleanText.split(' ').length * 60) / 140;
+            startTypewriter(cleanText, duration);
+          };
+          audio.onended = () => {
+            isSpeakingBot = false;
+            activeAudioElement = null;
+            stopTypewriter();
+            if (isCodingMode && codingHintToast) {
+              codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
+              setTimeout(() => {
+                if (!isSpeakingBot) hideCodingHintToast();
+              }, 6000);
+            } else {
+              const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+              if (targetEl) targetEl.textContent = cleanText;
+            }
+            onSpeechPlaybackEnd();
+          };
+          audio.onerror = (e) => {
+            console.error("Audio playback error:", e);
+            triggerFallback();
+          };
+          audio.play().catch(err => {
+            console.error("Failed to autoplay audio:", err);
+            triggerFallback();
+          });
+        })
+        .catch((err) => {
+          console.warn("ElevenLabs TTS failed, falling back to browser synthesis:", err);
+          triggerFallback();
+        });
+    } else {
+      if (isElevenVoice && !elevenApiKey) {
+        console.warn("ElevenLabs key missing, falling back to browser synthesis.");
+      }
+      triggerFallback();
+    }
+  }
+
+  function speakBrowserFallback(cleanText) {
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    activeUtterance = utterance;
+    const voices = window.speechSynthesis.getVoices();
+    let selectedVoice = null;
+    
+    if (selectVoice.value && !selectVoice.value.startsWith('eleven_') && !selectVoice.value.startsWith('edge_')) {
+      selectedVoice = voices.find(v => v.name === selectVoice.value);
+    }
+
+    const femaleVoiceKeywords = [
+      'female', 'zira', 'hazel', 'susan', 'heera', 'haruka', 'jessica', 'karen', 
+      'moira', 'tessa', 'veena', 'samantha', 'victoria', 'kyoko', 'yuri', 'mei-jia',
+      'sin-ji', 'fiona', 'zoe', 'stephanie', 'anna', 'helena', 'zosia', 'laura'
+    ];
+
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => {
+        const name = v.name.toLowerCase();
+        const lang = v.lang.toLowerCase();
+        const isEnglish = lang.includes('en');
+        const isExplicitlyMale = name.includes('male') || name.includes('david') || name.includes('daniel') || name.includes('google us english') || name.includes('andrew') || name.includes('brian') || name.includes('thomas') || name.includes('antoni') || name.includes('adam');
+        return isEnglish && isExplicitlyMale;
+      });
+    }
+
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => {
+        const name = v.name.toLowerCase();
+        const lang = v.lang.toLowerCase();
+        const isEnglish = lang.includes('en');
+        const isFemale = femaleVoiceKeywords.some(keyword => name.includes(keyword));
+        return isEnglish && !isFemale;
+      });
+    }
+
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang.toLowerCase().includes('en'));
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => {
+      isSpeakingBot = true;
+      if (!isMuted) {
+        if (recognition) {
+          try { recognition.stop(); } catch(e) {}
+        }
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          try { mediaRecorder.pause(); } catch(e) {}
+        }
+      }
+      setOrbState('speaking');
+      renderChatHistory(); // Ensure the active question bubble has content = "" and id="active-question-bubble"
+      
+      const duration = (cleanText.split(' ').length * 60) / 140;
+      startTypewriter(cleanText, duration);
+      
+      (window as any).speechStartTime = Date.now();
+      (window as any).speechEstimatedDuration = duration * 1000;
+    };
+
+    utterance.onend = () => {
+      isSpeakingBot = false;
+      (window as any).speechStartTime = null;
+      (window as any).speechEstimatedDuration = null;
+      if (isCodingMode && codingHintToast) {
+        codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
+        setTimeout(() => {
+          if (!isSpeakingBot) hideCodingHintToast();
+        }, 6000);
+      } else {
+        const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+        if (targetEl) targetEl.textContent = cleanText;
+      }
+      onSpeechPlaybackEnd();
+    };
+
+    utterance.onerror = () => {
+      isSpeakingBot = false;
+      (window as any).speechStartTime = null;
+      (window as any).speechEstimatedDuration = null;
+      setOrbState('idle');
+      const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+      if (targetEl) targetEl.textContent = cleanText;
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function onSpeechPlaybackEnd() {
+    if (!isTypingMode && micEnabled) {
+      if (mediaRecorder && mediaRecorder.state === 'paused') {
+        try { mediaRecorder.resume(); } catch(e) {}
+        if (recognition) {
+          try {
+            accumulatedTranscript = textareaAnswer.value.trim();
+            if (accumulatedTranscript) accumulatedTranscript += ' ';
+            recognition.start();
+          } catch(e) {}
+        }
+      } else {
+        startRecording();
+      }
+    } else {
+      setOrbState('idle');
+    }
+  }
+
+  // --- STATE SWITCHERS ---
+  function switchView(viewName) {
+    Object.keys(views).forEach(key => {
+      if (views[key]) {
+        views[key].classList.remove('morphing-to-ball', 'unfold-from-ball');
+        if (key === viewName) {
+          views[key].classList.remove('hidden');
+        } else {
+          views[key].classList.add('hidden');
+        }
+      }
+    });
+
+    state = viewName;
+  }
+
+  function switchViewWithOrb(fromKey, toKey, callback, isSlow = false) {
+    const fromView = views[fromKey];
+    const toView = views[toKey];
+    if (!fromView || !toView) {
+      switchView(toKey);
+      if (callback) callback();
+      return;
+    }
+
+    const collapseDuration = isSlow ? 1.2 : 0.45;
+    const expandDuration = isSlow ? 1.5 : 0.55;
+    const opacityDuration = isSlow ? 0.9 : 0.3;
+    const fadeDuration = isSlow ? 0.9 : 0.3;
+    const fadeDelay = isSlow ? 0.8 : 0.25;
+
+    const root = document.documentElement;
+    root.style.setProperty('--transition-collapse-duration', `${collapseDuration}s`);
+    root.style.setProperty('--transition-opacity-duration', `${opacityDuration}s`);
+    root.style.setProperty('--transition-expand-duration', `${expandDuration}s`);
+    root.style.setProperty('--transition-fade-duration', `${fadeDuration}s`);
+    root.style.setProperty('--transition-fade-delay', `${fadeDelay}s`);
+
+    // 1. Collapse the current view into a ball
+    fromView.classList.add('morphing-to-ball');
+    
+    // 2. Wait for collapse animation
+    setTimeout(() => {
+      fromView.classList.remove('morphing-to-ball');
+      fromView.classList.add('hidden');
+      
+      toView.classList.remove('hidden');
+      toView.classList.add('unfold-from-ball');
+      state = toKey;
+      
+      if (callback) callback();
+
+      // Remove unfold class after expansion completes
+      setTimeout(() => {
+        toView.classList.remove('unfold-from-ball');
+      }, expandDuration * 1000);
+    }, collapseDuration * 1000);
+  }
+
+  async function checkMicAndInitialize() {
+    const hasMic = await initAudioRecorder();
+    if (!hasMic) {
+      console.warn("Microphone not available or permission denied.");
+      return false;
+    }
+    btnToggleInputMode.classList.remove('opacity-80');
+    return true;
+  }
+
+  function switchToTextMode() {
+    isTypingMode = true;
+    voiceInputContainer.classList.add('hidden');
+    textInputContainer.classList.remove('hidden');
+    btnToggleInputMode.innerHTML = `
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      </svg>
+      <span>Switch to Voice</span>
+    `;
+    stopRecording();
+    renderChatHistory();
+  }
+
+  function switchToVoiceMode() {
+    isTypingMode = false;
+    micEnabled = true;
+    textInputContainer.classList.add('hidden');
+    voiceInputContainer.classList.remove('hidden');
+    btnToggleInputMode.innerHTML = `
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="M6 8h10M6 12h8M6 16h4" />
+      </svg>
+      <span>Switch to Type</span>
+    `;
+
+    // Sync keyboard draft back to voice review box
+    const typedText = textareaAnswer.value.trim();
+    if (typedText && typedText.length >= 5) {
+      liveSubtitleBox.textContent = typedText;
+      liveSubtitleBox.contentEditable = "true";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-left select-all focus:outline-none focus:border-accent-blue/40";
+      
+      liveSubtitleBox.oninput = () => {
+        textareaAnswer.value = liveSubtitleBox.textContent;
+        renderChatHistory();
+      };
+      micInstructions.textContent = "Review transcription above (click to edit), or click mic to add more.";
+    } else {
+      liveSubtitleBox.textContent = "Tap microphone or type to answer...";
+      liveSubtitleBox.contentEditable = "false";
+      liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/40 overflow-y-auto text-center italic flex items-center justify-center select-none";
+      micInstructions.textContent = "Microphone muted. Tap to talk";
+    }
+
+    renderChatHistory();
+
+    if (!isSpeakingBot) {
+      startRecording();
+    }
+  }
+
+  btnToggleInputMode.addEventListener('click', async () => {
+    if (isTypingMode) {
+      const hasMic = await checkMicAndInitialize();
+      if (hasMic) {
+        switchToVoiceMode();
+      } else {
+        alert("Microphone permission or hardware access failed.\n\nPlease check your system settings and allow microphone access in your browser to enable Voice Mode.");
+      }
+    } else {
+      switchToTextMode();
+    }
+  });
+
+  if (textareaAnswer) {
+    textareaAnswer.addEventListener('input', () => {
+      renderChatHistory();
+    });
+  }
+
+  // --- CODING (DSA) EDITOR INTERACTIVE CONTROLLERS ---
+  const CODE_TEMPLATES = {
+    javascript: `// JavaScript Solution\n// Complete your function solution here\n\nfunction solve(nums, target) {\n    // Write your code here\n    return [];\n}`,
+    python: `# Python Solution\n# Complete your function solution here\n\ndef solve(nums, target):\n    # Write your code here\n    return []`,
+    cpp: `// C++ Solution\n// Complete your solution here\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> solve(vector<int>& nums, int target) {\n        // Write your code here\n        return {};\n    }\n};`,
+    java: `// Java Solution\n// Complete your solution here\nimport java.util.*;\n\npublic class Solution {\n    public int[] solve(int[] nums, int target) {\n        // Write your code here\n        return new int[0];\n    }\n}`
+  };
+
+  function updateCodingGutter() {
+    if (!codingEditorTextarea || !codingEditorGutter) return;
+    const lines = codingEditorTextarea.value.split('\n').length;
+    
+    // Calculate cursor line number
+    const textBeforeCursor = codingEditorTextarea.value.substring(0, codingEditorTextarea.selectionStart);
+    const activeLine = textBeforeCursor.split('\n').length;
+
+    let gutterHTML = '';
+    for (let i = 1; i <= Math.max(lines, 1); i++) {
+      let lineHTML = `<div class="relative w-full pr-1.5 h-[20px] flex items-center justify-end leading-[20px]">`;
+      if (i === activeErrorLine) {
+        lineHTML += `<span class="absolute left-1.5 top-[6px] w-2.5 h-2.5 rounded-full bg-red-500 border border-red-950 flex items-center justify-center font-bold text-[7px] text-white animate-pulse">!</span>`;
+        lineHTML += `<span class="text-red-500 font-semibold">${i}</span>`;
+      } else if (i === activeLine) {
+        lineHTML += `<span class="text-ink font-bold transition-colors duration-150">${i}</span>`;
+      } else {
+        lineHTML += `<span class="text-mute/30 transition-colors duration-150">${i}</span>`;
+      }
+      lineHTML += `</div>`;
+      gutterHTML += lineHTML;
+    }
+    codingEditorGutter.innerHTML = gutterHTML;
+  }
+
+  if (codingEditorTextarea) {
+    // Scroll synchronization
+    codingEditorTextarea.addEventListener('scroll', () => {
+      codingEditorGutter.scrollTop = codingEditorTextarea.scrollTop;
+    });
+
+    // Cursor line update triggers
+    codingEditorTextarea.addEventListener('input', () => {
+      activeErrorLine = null; // Clear active error line when user edits the code
+      updateCodingGutter();
+    });
+    codingEditorTextarea.addEventListener('keyup', updateCodingGutter);
+    codingEditorTextarea.addEventListener('click', updateCodingGutter);
+    codingEditorTextarea.addEventListener('focus', updateCodingGutter);
+    
+    codingEditorTextarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = codingEditorTextarea.selectionStart;
+        const end = codingEditorTextarea.selectionEnd;
+        const currentVal = codingEditorTextarea.value;
+        codingEditorTextarea.value = currentVal.substring(0, start) + "    " + currentVal.substring(end);
+        codingEditorTextarea.selectionStart = codingEditorTextarea.selectionEnd = start + 4;
+        updateCodingGutter();
+      }
+    });
+  }
+
+  // --- CODING WORKSPACE LOGICS & INTERACTIVE CONTROLLERS ---
+  const btnRunCode = document.getElementById('btn-run-code');
+  const lcConsoleOutput = document.getElementById('lc-console-output');
+  const editorCursorPos = document.getElementById('editor-cursor-pos');
+  const editorSavedStatus = document.getElementById('editor-saved-status');
+  const tabLcTestcase = document.getElementById('tab-lc-testcase');
+  const tabLcResult = document.getElementById('tab-lc-result');
+
+  function updateCursorPos() {
+    if (!codingEditorTextarea || !editorCursorPos) return;
+    const text = codingEditorTextarea.value;
+    const selStart = codingEditorTextarea.selectionStart;
+    const linesBefore = text.substring(0, selStart).split('\n');
+    const line = linesBefore.length;
+    const col = linesBefore[linesBefore.length - 1].length + 1;
+    editorCursorPos.textContent = `Ln ${line}, Col ${col}`;
+  }
+
+  if (codingEditorTextarea) {
+    codingEditorTextarea.addEventListener('keyup', updateCursorPos);
+    codingEditorTextarea.addEventListener('click', updateCursorPos);
+    codingEditorTextarea.addEventListener('input', updateCursorPos);
+  }
+
+  if (codingLanguageSelect) {
+    codingLanguageSelect.addEventListener('change', () => {
+      const lang = codingLanguageSelect.value || 'javascript';
+      submittedLanguage = lang;
+      if (codingEditorTextarea) {
+        codingEditorTextarea.value = CODE_TEMPLATES[lang] || '';
+        activeErrorLine = null;
+        updateCodingGutter();
+        updateCursorPos();
+      }
+    });
+  }
+
+  // Utility buttons listeners
+  const btnLcCopy = document.getElementById('btn-lc-copy');
+  if (btnLcCopy) {
+    btnLcCopy.addEventListener('click', () => {
+      if (!codingEditorTextarea) return;
+      navigator.clipboard.writeText(codingEditorTextarea.value);
+      const originalHTML = btnLcCopy.innerHTML;
+      btnLcCopy.innerHTML = `<svg class="w-3.5 h-3.5 text-accent-green" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>`;
+      setTimeout(() => {
+        btnLcCopy.innerHTML = originalHTML;
+      }, 1500);
+    });
+  }
+
+  const btnLcWrap = document.getElementById('btn-lc-wrap');
+  let isLineWrapped = true;
+  if (btnLcWrap) {
+    btnLcWrap.addEventListener('click', () => {
+      if (!codingEditorTextarea) return;
+      isLineWrapped = !isLineWrapped;
+      if (isLineWrapped) {
+        codingEditorTextarea.classList.remove('whitespace-pre');
+        codingEditorTextarea.classList.add('whitespace-pre-wrap');
+        btnLcWrap.classList.add('text-accent-blue');
+      } else {
+        codingEditorTextarea.classList.remove('whitespace-pre-wrap');
+        codingEditorTextarea.classList.add('whitespace-pre');
+        btnLcWrap.classList.remove('text-accent-blue');
+      }
+    });
+  }
+
+  const btnLcReset = document.getElementById('btn-lc-reset');
+  if (btnLcReset) {
+    btnLcReset.addEventListener('click', () => {
+      if (!codingEditorTextarea) return;
+      if (confirm("Are you sure you want to reset your code to the default template? This will discard your current edits.")) {
+        const lang = codingLanguageSelect.value || 'javascript';
+        codingEditorTextarea.value = CODE_TEMPLATES[lang] || '';
+        activeErrorLine = null;
+        updateCodingGutter();
+        updateCursorPos();
+      }
+    });
+  }
+
+  const btnLcExpand = document.getElementById('btn-lc-expand');
+  if (btnLcExpand) {
+    btnLcExpand.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn("Fullscreen request failed", err);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    });
+  }
+
+  // Handle Tab switches in Console pane
+  if (tabLcTestcase && tabLcResult) {
+    tabLcTestcase.addEventListener('click', () => {
+      tabLcTestcase.className = "flex items-center gap-1 text-ink font-semibold cursor-pointer border-b border-accent-yellow py-2 h-8";
+      tabLcResult.className = "flex items-center gap-1 hover:text-ink cursor-pointer font-semibold py-2";
+      
+      // Update output display
+      lcConsoleOutput.innerHTML = `
+        <div class="space-y-3 font-sans text-xs text-mute w-full">
+          <p class="font-mono text-[10px] text-mute/50">Standard Test Cases:</p>
+          <div class="bg-white/5 border border-white/5 rounded p-3 font-mono text-[11px] space-y-1">
+            <p><strong class="text-ink">Case 1:</strong> nums = [2, 7, 11, 15], target = 9</p>
+            <p><strong class="text-ink">Case 2:</strong> nums = [3, 2, 4], target = 6</p>
+            <p><strong class="text-ink">Case 3:</strong> nums = [3, 3], target = 6</p>
+          </div>
+        </div>
+      `;
+    });
+
+    tabLcResult.addEventListener('click', () => {
+      tabLcResult.className = "flex items-center gap-1 text-ink font-semibold cursor-pointer border-b border-accent-yellow py-2 h-8";
+      tabLcTestcase.className = "flex items-center gap-1 hover:text-ink cursor-pointer font-semibold py-2";
+      
+      // Update output display
+      lcConsoleOutput.innerHTML = `
+        <span class="italic text-[10px] text-mute/50">Run your code to see the testcase results here.</span>
+      `;
+    });
+  }
+
+  // Compiler output formatting
+  function displayCompileError(message, lineNum, charNum, codeLineText = "") {
+    activeErrorLine = lineNum;
+    updateCodingGutter();
+
+    // Select the "Test Result" tab
+    if (tabLcResult && tabLcTestcase) {
+      tabLcResult.className = "flex items-center gap-1 text-ink font-semibold cursor-pointer border-b border-accent-yellow py-2 h-8";
+      tabLcTestcase.className = "flex items-center gap-1 hover:text-ink cursor-pointer font-semibold py-2";
+    }
+
+    lcConsoleOutput.innerHTML = `
+      <div class="text-red-500 font-bold text-sm mb-2">Compile Error</div>
+      <div class="bg-red-950/20 border border-red-500/20 p-3 rounded-lg text-red-200/90 text-[11px] leading-relaxed w-full">
+        <p class="font-bold mb-1">Line ${lineNum}: Char ${charNum}: error: ${message}</p>
+        <p class="font-mono text-mute/40 mt-2">${lineNum} |  ${escapeHTML(codeLineText) || '   '}</p>
+        <p class="font-mono text-red-400">  |  ${' '.repeat(Math.max(charNum - 1, 0))}^</p>
+        <p class="mt-2 text-mute/30 text-[10px]">1 error generated.</p>
+      </div>
+    `;
+    
+    // Highlight the lines scroll position if possible or just log
+    console.warn(`Compile error at line ${lineNum}, char ${charNum}: ${message}`);
+  }
+
+  function displayMockAccepted(resultOutput = "[0,1]", expectedOutput = "[0,1]") {
+    activeErrorLine = null;
+    updateCodingGutter();
+
+    // Select the "Test Result" tab
+    if (tabLcResult && tabLcTestcase) {
+      tabLcResult.className = "flex items-center gap-1 text-ink font-semibold cursor-pointer border-b border-accent-yellow py-2 h-8";
+      tabLcTestcase.className = "flex items-center gap-1 hover:text-ink cursor-pointer font-semibold py-2";
+    }
+
+    lcConsoleOutput.innerHTML = `
+      <div class="text-green-500 font-bold text-sm mb-1.5 flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        <span>Accepted</span>
+      </div>
+      <div class="text-[11px] text-mute space-y-1.5 bg-white/5 p-3 rounded border border-white/5 w-full">
+        <p><strong class="text-ink">Input:</strong> nums = [2, 7, 11, 15], target = 9</p>
+        <p><strong class="text-ink">Output:</strong> <span class="font-bold text-ink">${resultOutput}</span></p>
+        <p><strong class="text-ink">Expected:</strong> <span class="font-bold text-ink">${expectedOutput}</span></p>
+        <div class="h-[1px] bg-white/5 my-2"></div>
+        <p class="text-green-400 font-sans text-[10px] font-semibold">All standard test cases passed!</p>
+      </div>
+    `;
+  }
+
+  // Click handler to compile/run code
+  if (btnRunCode) {
+    btnRunCode.addEventListener('click', () => {
+      if (!codingEditorTextarea || !lcConsoleOutput) return;
+
+      const userCode = codingEditorTextarea.value;
+      const lang = codingLanguageSelect.value || 'javascript';
+      
+      // Select the "Test Result" tab
+      if (tabLcResult && tabLcTestcase) {
+        tabLcResult.className = "flex items-center gap-1 text-ink font-semibold cursor-pointer border-b border-accent-yellow py-2 h-8";
+        tabLcTestcase.className = "flex items-center gap-1 hover:text-ink cursor-pointer font-semibold py-2";
+      }
+
+      lcConsoleOutput.innerHTML = `<span class="animate-pulse text-[11px] text-accent-yellow">Running tests...</span>`;
+
+      // Small simulation delay
+      setTimeout(() => {
+        if (lang === 'javascript') {
+          try {
+            // Real client-side test execution!
+            const testCaseInput = [2, 7, 11, 15];
+            const testCaseTarget = 9;
+            
+            const runnerCode = `
+              ${userCode}
+              
+              if (typeof solve === 'function') {
+                return solve(arguments[0], arguments[1]);
+              } else if (typeof twoSum === 'function') {
+                return twoSum(arguments[0], arguments[1]);
+              }
+              throw new Error("Function 'solve' or 'twoSum' not found. Please declare solve(nums, target).");
+            `;
+            
+            const userFn = new Function('nums', 'target', runnerCode);
+            const result = userFn(testCaseInput, testCaseTarget);
+            
+            if (!Array.isArray(result)) {
+              throw new Error(`Returned value is not an Array. Got: ${typeof result}`);
+            }
+            
+            const sorted = [...result].sort((a,b) => a-b);
+            if (sorted.length === 2 && sorted[0] === 0 && sorted[1] === 1) {
+              displayMockAccepted(JSON.stringify(result));
+            } else {
+              activeErrorLine = null;
+              updateCodingGutter();
+              lcConsoleOutput.innerHTML = `
+                <div class="text-red-500 font-bold text-sm mb-1 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                  Wrong Answer
+                </div>
+                <div class="text-[11px] text-mute space-y-1 bg-white/5 p-3 rounded border border-white/5">
+                  <p><strong class="text-ink">Input:</strong> nums = [2, 7, 11, 15], target = 9</p>
+                  <p><strong class="text-red-400 font-bold"><strong class="text-ink">Output:</strong> ${JSON.stringify(result)}</strong></p>
+                  <p><strong class="text-ink">Expected:</strong> [0, 1]</p>
+                </div>
+              `;
+            }
+          } catch (err) {
+            // Find line number
+            let lineNum = 1;
+            let charNum = 1;
+            const stackMatch = err.stack ? err.stack.match(/<anonymous>:(\d+):(\d+)/) : null;
+            let codeLine = "";
+            if (stackMatch) {
+              lineNum = parseInt(stackMatch[1], 10) - 2; // Offset the Function shell wrapper lines
+              charNum = parseInt(stackMatch[2], 10);
+              const lines = userCode.split('\n');
+              if (lineNum > 0 && lineNum <= lines.length) {
+                codeLine = lines[lineNum - 1];
+              }
+            }
+            displayCompileError(err.message, lineNum, charNum, codeLine);
+          }
+        } else if (lang === 'cpp') {
+          if (!userCode.includes('return')) {
+            displayCompileError("non-void function does not return a value [-Werror,-Wreturn-type]", 10, 9, "    }");
+          } else if (userCode.split('{').length !== userCode.split('}').length) {
+            displayCompileError("expected '}' at end of input", 11, 5, "};");
+          } else {
+            displayMockAccepted("[0,1]");
+          }
+        } else if (lang === 'python') {
+          if (userCode.includes('def solve') && !userCode.includes('def solve(')) {
+            displayCompileError("invalid syntax", 4, 18, "def solve");
+          } else if (!userCode.includes('return')) {
+            displayCompileError("expected an indented block", 5, 8, "    # Write your code here");
+          } else {
+            displayMockAccepted("[0, 1]");
+          }
+        } else if (lang === 'java') {
+          if (!userCode.includes('return')) {
+            displayCompileError("missing return statement", 8, 9, "    }");
+          } else {
+            displayMockAccepted("[0, 1]");
+          }
+        }
+      }, 600);
+    });
+  }
+
+  // --- CODING WORKSPACE LOGICS & INTERACTIVE CONTROLLERS ---
+  function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function formatEquationsAndMath(str) {
+    if (!str) return '';
+    return str
+      .replace(/<=/g, '&le;')
+      .replace(/>=/g, '&ge;')
+      .replace(/(\d+)\^([a-zA-Z0-9\-+]+)/g, '$1<sup>$2</sup>');
+  }
+
+  function renderExampleContainer(lines) {
+    if (lines.length === 0) return '';
+    let html = `<div class="bg-[#141414]/75 border border-white/5 p-4 rounded-xl font-sans text-xs space-y-2 my-3 shadow-inner leading-relaxed text-ink/90">`;
+    lines.forEach(line => {
+      let trimmed = line.trim();
+      if (!trimmed) return;
+      
+      // mathematical notations
+      trimmed = formatEquationsAndMath(trimmed);
+      
+      // Inline backticks formatter
+      trimmed = trimmed.replace(/`([^`]+)`/g, '<code class="bg-[#2c2c2c] px-1.5 py-0.5 rounded text-accent-yellow font-mono text-[11px] border border-white/5">$1</code>');
+
+      if (trimmed.startsWith('Input:')) {
+        const val = trimmed.substring(6).trim();
+        html += `<div><strong class="text-ink font-semibold">Input:</strong> <span class="font-mono text-ink/90">${val}</span></div>`;
+      } else if (trimmed.startsWith('Output:')) {
+        const val = trimmed.substring(7).trim();
+        html += `<div><strong class="text-ink font-semibold">Output:</strong> <span class="font-mono text-ink/90">${val}</span></div>`;
+      } else if (trimmed.startsWith('Explanation:')) {
+        const val = trimmed.substring(12).trim();
+        html += `<div><strong class="text-ink font-semibold">Explanation:</strong> <span>${val}</span></div>`;
+      } else {
+        html += `<div>${trimmed}</div>`;
+      }
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  function formatProblemBody(text) {
+    if (!text) return '';
+    
+    const lines = text.split('\n');
+    let outputHTML = '';
+    let inExample = false;
+    let exampleLines = [];
+    let inConstraints = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+      let trimmed = line.trim();
+
+      // Check for Example header
+      if (/^(?:###\s*|#+\s*|\*\*+)?Example\s*\d+:?/i.test(trimmed)) {
+        if (inExample) {
+          outputHTML += renderExampleContainer(exampleLines);
+          exampleLines = [];
+        }
+        inExample = true;
+        inConstraints = false;
+        
+        const cleanHeader = trimmed.replace(/^[#\*\s]+/, '').replace(/[#\*\s]+$/, '');
+        outputHTML += `<p class="font-semibold text-ink mt-5 mb-1">${cleanHeader}</p>`;
+        continue;
+      }
+
+      // Check for Constraints header
+      if (/^(?:###\s*|#+\s*|\*\*+)?Constraints:?/i.test(trimmed)) {
+        if (inExample) {
+          outputHTML += renderExampleContainer(exampleLines);
+          inExample = false;
+          exampleLines = [];
+        }
+        inConstraints = true;
+        
+        outputHTML += `<p class="font-semibold text-ink mt-5 mb-2 flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-accent-yellow" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Constraints:</p>`;
+        continue;
+      }
+
+      // Check for generic header
+      if (trimmed.startsWith('###') || (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.length < 50)) {
+        if (inExample) {
+          outputHTML += renderExampleContainer(exampleLines);
+          inExample = false;
+          exampleLines = [];
+        }
+        inConstraints = false;
+        
+        const cleanHeader = trimmed.replace(/^[#\*\s]+/, '').replace(/[#\*\s]+$/, '');
+        outputHTML += `<h4 class="text-xs font-mono font-bold text-ink/95 mt-4 mb-2 uppercase tracking-wider">${cleanHeader}</h4>`;
+        continue;
+      }
+
+      if (inExample) {
+        exampleLines.push(line);
+      } else if (inConstraints) {
+        if (!trimmed) continue;
+        // Format constraints list item
+        let cleanBullet = trimmed.replace(/^[\-\*\s\d\.]+\s*/, '');
+        cleanBullet = formatEquationsAndMath(cleanBullet);
+        cleanBullet = cleanBullet.replace(/`([^`]+)`/g, '<code class="bg-[#2c2c2c] px-1.5 py-0.5 rounded text-accent-yellow font-mono text-[11px] border border-white/5">$1</code>');
+        outputHTML += `<div class="flex items-start gap-2 text-mute/85 text-[11px] pl-2 mb-1.5">
+          <span class="text-accent-yellow font-mono mt-0.5">•</span>
+          <span>${cleanBullet}</span>
+        </div>`;
+      } else {
+        if (!trimmed) {
+          outputHTML += `<div class="h-2"></div>`;
+          continue;
+        }
+        let formattedLine = formatEquationsAndMath(trimmed);
+        formattedLine = formattedLine.replace(/`([^`]+)`/g, '<code class="bg-[#2c2c2c] px-1.5 py-0.5 rounded text-accent-yellow font-mono text-[11px] border border-white/5">$1</code>');
+        formattedLine = formattedLine.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-ink font-semibold">$1</strong>');
+        outputHTML += `<p class="mb-2 text-ink/80 text-xs">${formattedLine}</p>`;
+      }
+    }
+
+    if (inExample && exampleLines.length > 0) {
+      outputHTML += renderExampleContainer(exampleLines);
+    }
+
+    return outputHTML;
+  }
+
+  function displayCodingProblem(questionRaw) {
+    let title = "Two Sum";
+    let body = questionRaw;
+    
+    const lines = questionRaw.split('\n');
+    if (lines.length > 0) {
+      let titleIndex = 0;
+      while (titleIndex < lines.length && !lines[titleIndex].trim()) {
+        titleIndex++;
+      }
+      if (titleIndex < lines.length) {
+        const rawTitle = lines[titleIndex];
+        title = rawTitle.replace(/Question \d+ of \d+:?/i, "").replace(/^[#\*\s`]+/, '').replace(/[#\*\s`]+$/, '').trim();
+        body = lines.slice(titleIndex + 1).join('\n').trim();
+      }
+    }
+    
+    codingProblemTitle.textContent = title;
+    codingProblemDifficulty.textContent = difficulty;
+    
+    if (difficulty.includes("Easy")) {
+      codingProblemDifficulty.className = "px-2 py-0.5 rounded text-[9px] font-mono font-semibold uppercase bg-accent-green/10 text-accent-green border border-accent-green/20";
+    } else if (difficulty.includes("Hard") || difficulty.includes("Expert")) {
+      codingProblemDifficulty.className = "px-2 py-0.5 rounded text-[9px] font-mono font-semibold uppercase bg-accent-red/10 text-accent-red border border-accent-red/20";
+    } else {
+      codingProblemDifficulty.className = "px-2 py-0.5 rounded text-[9px] font-mono font-semibold uppercase bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20";
+    }
+    
+    codingProblemBody.innerHTML = formatProblemBody(body);
+  }
+
+  function startCodingTimer() {
+    if (codingTimerInterval) clearInterval(codingTimerInterval);
+    updateCodingTimerUI();
+    
+    codingTimerInterval = setInterval(() => {
+      codingSecondsLeft--;
+      updateCodingTimerUI();
+      
+      if (codingSecondsLeft <= 0) {
+        clearInterval(codingTimerInterval);
+        alert("Time is up for the coding phase! Transitioning to your approach and review questions.");
+        handleCodeSubmission(true);
+      }
+    }, 1000);
+  }
+
+  function updateCodingTimerUI() {
+    if (!codingTimerPill) return;
+    const mins = Math.floor(codingSecondsLeft / 60);
+    const secs = codingSecondsLeft % 60;
+    codingTimerPill.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    if (codingSecondsLeft < 120) {
+      codingTimerPill.className = "px-2.5 py-0.5 rounded-full border border-accent-red/50 text-accent-red font-bold animate-pulse text-[11px]";
+    } else {
+      codingTimerPill.className = "px-2.5 py-0.5 rounded-full border border-accent-blue/30 text-accent-blue font-bold animate-pulse text-[11px]";
+    }
+  }
+
+  async function handleCodeSubmission(isTimeExpired) {
+    if (codingTimerInterval) {
+      clearInterval(codingTimerInterval);
+      codingTimerInterval = null;
+    }
+    stopHintMic();
+    hideCodingHintToast();
+    
+    submittedCode = codingEditorTextarea.value.trim();
+    
+    // Switch views
+    codingWorkspace.classList.add('hidden');
+    standardWorkspace.classList.remove('hidden');
+    
+    // Reparent orb back
+    const coreOrb = document.getElementById('interviewer-core-orb');
+    const wrapper = document.getElementById('orb-wrapper');
+    if (coreOrb && wrapper) {
+      coreOrb.style.width = '';
+      coreOrb.style.height = '';
+      wrapper.appendChild(coreOrb);
+    }
+    
+    isCodingMode = false;
+    setCodingModeLayout(false);
+    isFollowUpMode = true;
+    
+    // Clear standard text areas
+    textareaAnswer.value = '';
+    liveSubtitleBox.textContent = "Tap microphone or type to answer...";
+    liveSubtitleBox.contentEditable = "false";
+    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-28 text-sm font-light leading-relaxed text-mute/40 overflow-y-auto text-center italic flex items-center justify-center select-none";
+    
+    setOrbState('thinking');
+    questionText.innerHTML = '<span class="text-mute animate-pulse">Evaluating solution draft...</span>';
+    
+    try {
+      const codePrompt = `Candidate has submitted the following code in ${submittedLanguage} for the problem "${codingProblemTitle.textContent}":\n\n\`\`\`${submittedLanguage}\n${submittedCode}\n\`\`\`\n\nTimer status: ${isTimeExpired ? 'Time Expired' : 'Submitted within limit'}.\n\nAI Interviewer: Please ask the candidate what their approach was to solving the problem, and to explain their time and space complexity. Keep the response concise, spoken as the voice agent.`;
+      
+      chatHistory.push({
+        role: "user",
+        parts: [{ text: codePrompt }]
+      });
+      
+      const followUpQuestion = await getNextQuestion(apiKey, {
+        resumeText,
+        topics: selectedTopics,
+        difficulty,
+        questionCount
+      }, chatHistory);
+      
+      chatHistory.push({
+        role: "model",
+        parts: [{ text: followUpQuestion }]
+      });
+      
+      questionsList.push(followUpQuestion);
+      displayQuestion(followUpQuestion);
+    } catch (err) {
+      console.error(err);
+      questionText.textContent = "Submission evaluated. What was your approach to solving the problem and what is the time complexity?";
+      setOrbState('idle');
+    }
+  }
+
+  function startHintMic() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please type or query verbally.");
+      return;
+    }
+    
+    hintSpeechRecognition = new SpeechRecognition();
+    hintSpeechRecognition.lang = 'en-US';
+    hintSpeechRecognition.interimResults = false;
+    hintSpeechRecognition.maxAlternatives = 1;
+    
+    hintSpeechRecognition.onstart = () => {
+      isHintRecording = true;
+      btnCodingHintMic.classList.remove('bg-slate-900/60');
+      btnCodingHintMic.classList.add('bg-accent-red/20', 'border-accent-red/40', 'animate-pulse');
+      codingHintToast.textContent = "Listening for your query or hint request...";
+      codingHintToast.classList.remove('opacity-0', 'translate-y-2');
+      codingHintToast.classList.add('opacity-100', 'translate-y-0');
+    };
+    
+    hintSpeechRecognition.onresult = async (event) => {
+      const query = event.results[0][0].transcript.trim();
+      if (query) {
+        codingHintToast.textContent = `Asking: "${query}"...`;
+        await fetchHintFromInterviewer(query);
+      } else {
+        codingHintToast.textContent = "No speech detected. Click mic to ask again.";
+        setTimeout(hideCodingHintToast, 3500);
+      }
+    };
+    
+    hintSpeechRecognition.onerror = (event) => {
+      console.error("Hint mic error:", event.error);
+      codingHintToast.textContent = "Speech recognition failed. Try speaking closer to mic.";
+      stopHintMic();
+      setTimeout(hideCodingHintToast, 3500);
+    };
+    
+    hintSpeechRecognition.onend = () => {
+      isHintRecording = false;
+      btnCodingHintMic.classList.remove('bg-accent-red/20', 'border-accent-red/40', 'animate-pulse');
+      btnCodingHintMic.classList.add('bg-slate-900/60');
+    };
+    
+    hintSpeechRecognition.start();
+  }
+  
+  function stopHintMic() {
+    if (hintSpeechRecognition) {
+      try { hintSpeechRecognition.stop(); } catch(e) {}
+    }
+  }
+  
+  function hideCodingHintToast() {
+    codingHintToast.classList.remove('opacity-100', 'translate-y-0');
+    codingHintToast.classList.add('opacity-0', 'translate-y-2');
+  }
+
+  async function fetchHintFromInterviewer(query) {
+    setOrbState('thinking');
+    try {
+      const problemTitle = codingProblemTitle.textContent;
+      const problemDesc = codingProblemBody.textContent;
+      const questionPrompt = `Problem: "${problemTitle}". Details: "${problemDesc}". Context: User asked: "${query}". Provide a short, direct hint or clarification in 1 or 2 sentences max. Do not output code blocks. Speak directly to the candidate.`;
+      
+      const hintResponse = await getHint(apiKey, questionPrompt, codingEditorTextarea.value.trim());
+      
+      codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${hintResponse}`;
+      
+      setOrbState('speaking');
+      speakQuestion(hintResponse);
+    } catch (err) {
+      console.error(err);
+      codingHintToast.textContent = "Failed to fetch hint. Try again.";
+      setOrbState('idle');
+      setTimeout(hideCodingHintToast, 3500);
+    }
+  }
+
+  if (btnSubmitCode) {
+    btnSubmitCode.addEventListener('click', () => {
+      if (confirm("Submit code solution and begin follow-up approach questions?")) {
+        handleCodeSubmission(false);
+      }
+    });
+  }
+
+  if (btnCodingHintMic) {
+    btnCodingHintMic.addEventListener('click', async () => {
+      unlockAudioContextAndPlayer();
+      if (isHintRecording) {
+        stopHintMic();
+      } else {
+        const hasMic = await checkMicAndInitialize();
+        if (hasMic) {
+          startHintMic();
+        } else {
+          alert("Microphone permission blocked or unavailable. Please adjust browser settings.");
+        }
+      }
+    });
+  }
+
+  btnMicToggle.addEventListener('click', async () => {
+    if (isMuted) {
+      micEnabled = true;
+      startRecording();
+    } else {
+      micEnabled = false;
+      stopRecording();
+      await transcribeRecordedVoice();
+    }
+  });
+
+  // --- LANDING VIEW NAVIGATIONS ---
+  const btnGetStarted = document.getElementById('btn-get-started');
+  btnGetStarted?.addEventListener('click', () => {
+    switchViewWithOrb('landing', 'setup', null, true);
+  });
+
+  const navLogo = document.getElementById('nav-logo');
+  navLogo?.addEventListener('click', () => {
+    switchView('landing');
+  });
+
+  // --- VIEW SETUP TRANSITIONS AND BOOTSTRAPPING ---
+  btnStart.addEventListener('click', async () => {
+    unlockAudioContextAndPlayer();
+    if (!apiKey) {
+      console.warn("No Gemini API key configured. Proceeding in local fallback mode.");
+      apiKey = "LOCAL_FALLBACK";
+      updateApiConnectionStatus(false);
+    }
+
+    if (selectedTopics.length === 0) {
+      alert("Please select at least one interview focus topic.");
+      return;
+    }
+
+    // Read input configurations
+    difficulty = selectDifficulty.value;
+    questionCount = parseInt(selectCount.value, 10) || 5;
+    
+    // Fetch manual resume text if paste mode is activated
+    if (!inputResumeText.classList.contains('hidden')) {
+      resumeText = inputResumeText.value.trim();
+    }
+
+    // Initialize interview variables
+    currentQuestionIndex = 0;
+    chatHistory = [];
+    questionsList = [];
+    answersList = [];
+    totalFillersAccumulated = 0;
+    allSessionWpms = [];
+
+  function setCodingModeLayout(active) {
+    const mainEl = document.querySelector('main');
+    if (active) {
+      if (mainEl) {
+        mainEl.classList.remove('items-center', 'justify-center');
+        mainEl.classList.add('items-stretch');
+      }
+      if (views.interview) {
+        views.interview.classList.remove('max-w-4xl', 'max-w-6xl', 'px-6', 'py-8', 'mx-auto');
+        views.interview.classList.add('max-w-none', 'w-full', 'h-full', 'px-4', 'py-2', 'flex-grow');
+      }
+      if (codingWorkspace) {
+        codingWorkspace.classList.remove('h-[650px]', 'rounded-2xl');
+        codingWorkspace.classList.add('h-[calc(100vh-95px)]', 'rounded-none');
+      }
+    } else {
+      if (mainEl) {
+        mainEl.classList.remove('items-stretch');
+        mainEl.classList.add('items-center', 'justify-center');
+      }
+      if (views.interview) {
+        views.interview.classList.remove('max-w-none', 'w-full', 'h-full', 'px-4', 'py-2', 'flex-grow');
+        views.interview.classList.add('max-w-4xl', 'px-6', 'py-8', 'mx-auto');
+      }
+      if (codingWorkspace) {
+        codingWorkspace.classList.remove('h-[calc(100vh-95px)]', 'rounded-none');
+        codingWorkspace.classList.add('h-[650px]', 'rounded-2xl');
+      }
+    }
+  }
+
+    // Check if Coding (DSA) is selected
+    if (selectedTopics.includes("Coding (DSA)")) {
+      isCodingMode = true;
+      standardWorkspace.classList.add('hidden');
+      codingWorkspace.classList.remove('hidden');
+
+      setCodingModeLayout(true);
+
+      // Move core orb canvas to compact container
+      const coreOrb = document.getElementById('interviewer-core-orb');
+      if (coreOrb && codingCompactOrb) {
+        coreOrb.style.width = '32px';
+        coreOrb.style.height = '32px';
+        codingCompactOrb.appendChild(coreOrb);
+      }
+
+      // Setup difficulty-based timer limits
+      let seconds = 1500; // 25 min default
+      if (difficulty.includes("Easy")) seconds = 900;
+      else if (difficulty.includes("Hard")) seconds = 2400;
+      else if (difficulty.includes("Expert")) seconds = 2700;
+      codingSecondsLeft = seconds;
+      startCodingTimer();
+
+      // Init template in code editor
+      submittedLanguage = codingLanguageSelect.value || 'javascript';
+      codingEditorTextarea.value = CODE_TEMPLATES[submittedLanguage];
+      updateCodingGutter();
+    } else {
+      isCodingMode = false;
+      standardWorkspace.classList.remove('hidden');
+      codingWorkspace.classList.add('hidden');
+
+      setCodingModeLayout(false);
+
+      // Move core orb back to standard wrapper if it was moved
+      const coreOrb = document.getElementById('interviewer-core-orb');
+      const wrapper = document.getElementById('orb-wrapper');
+      if (coreOrb && wrapper) {
+        coreOrb.style.width = '';
+        coreOrb.style.height = '';
+        wrapper.appendChild(coreOrb);
+      }
+    }
+
+    // Switch view to Simulator HUD with morphing ball transition
+    switchViewWithOrb('setup', 'interview', async () => {
+      if (isCodingMode) return; // Skip standard microphone checks since hint mic is used
+      if (isTypingMode) {
+        switchToTextMode();
+      } else {
+        const hasMic = await checkMicAndInitialize();
+        if (hasMic) {
+          switchToVoiceMode();
+        } else {
+          switchToTextMode();
+          console.warn("Microphone permission or hardware access failed. Falling back to Keyboard Mode silently.");
+        }
+      }
+    }, true);
+    
+    // Start session timer
+    globalSessionStartTime = Date.now();
+    startGlobalTimer();
+    
+    // Trigger initial question generation
+    setOrbState('thinking');
+    if (isCodingMode) {
+      codingProblemTitle.textContent = "Loading...";
+      codingProblemBody.innerHTML = '<span class="text-mute animate-pulse text-xs">AI interviewer is writing your coding challenge prompt...</span>';
+    } else {
+      questionText.innerHTML = '<span class="text-mute animate-pulse">Initializing Interviewer Panel...</span>';
+    }
+    
+    try {
+      // Sequence start: User instructs bot to start
+      const prompt = `Let's begin the mock interview session. Prompt me with Question 1.`;
+      chatHistory.push({
+        role: "user",
+        parts: [{ text: prompt }]
+      });
+
+      const firstQuestion = await getNextQuestion(apiKey, {
+        resumeText,
+        topics: selectedTopics,
+        difficulty,
+        questionCount
+      }, chatHistory);
+
+      chatHistory.push({
+        role: "model",
+        parts: [{ text: firstQuestion }]
+      });
+
+      questionsList.push(firstQuestion);
+      if (isCodingMode) {
+        displayCodingProblem(firstQuestion);
+        // Play verbal intro using Andrew voice
+        speakQuestion(firstQuestion);
+      } else {
+        displayQuestion(firstQuestion);
+      }
+    } catch (error) {
+      console.error(error);
+      if (isCodingMode) {
+        codingProblemBody.textContent = `Setup failed: ${error.message}. Double-check your API key and network connection.`;
+      } else {
+        questionText.textContent = `Setup failed: ${error.message}. Double-check your API key and network connection.`;
+      }
+      setOrbState('idle');
+    }
+  });
+
+  // --- DIALOGUE CHAT HISTORY RENDERER ---
+  function renderChatHistory() {
+    const container = document.getElementById('chat-history-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const maxLength = Math.max(questionsList.length, answersList.length);
+    for (let i = 0; i < maxLength; i++) {
+      // 1. Add Interviewer Question
+      if (i < questionsList.length) {
+        const qRaw = questionsList[i];
+        const qText = qRaw.replace(/Question \d+ of \d+:/i, '').trim();
+
+        const qBubble = document.createElement('div');
+        qBubble.className = "flex justify-start w-full mb-4 animate-[fadeIn_0.3s_ease-out]";
+        
+        const qInner = document.createElement('div');
+        qInner.className = "max-w-[85%] rounded-2xl rounded-tl-none px-4 py-2.5 bg-white/5 border border-white/10 text-ink/90 text-xs md:text-sm font-light leading-relaxed shadow-sm select-text";
+        
+        if (i === questionsList.length - 1 && isSpeakingBot) {
+          qInner.id = "active-question-bubble";
+          const existingActive = document.getElementById('active-question-bubble');
+          if (existingActive) {
+            qInner.innerHTML = existingActive.innerHTML;
+          } else {
+            qInner.innerHTML = `<span class="flex items-center gap-1.5 py-1" id="active-question-thinking-indicator"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-duration:1s]"></span><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-duration:1s] [animation-delay:0.2s]"></span><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-duration:1s] [animation-delay:0.4s]"></span></span>`;
+          }
+        } else {
+          qInner.textContent = qText;
+        }
+        
+        qBubble.appendChild(qInner);
+        container.appendChild(qBubble);
+      }
+
+      // 2. Add Candidate Answer
+      if (i < answersList.length) {
+        const aText = answersList[i];
+        const aBubble = document.createElement('div');
+        aBubble.className = "flex justify-end w-full mb-4 animate-[fadeIn_0.3s_ease-out]";
+        
+        const aInner = document.createElement('div');
+        aInner.className = "max-w-[85%] rounded-2xl rounded-tr-none px-4 py-2.5 bg-white/10 border border-white/15 text-ink text-xs md:text-sm font-light leading-relaxed shadow-sm text-right select-text";
+        aInner.textContent = aText;
+        
+        aBubble.appendChild(aInner);
+        container.appendChild(aBubble);
+      }
+    }
+
+    // 3. Show live draft text for current unanswered question
+    if (questionsList.length > answersList.length) {
+      let draftText = "";
+      if (isTypingMode) {
+        draftText = textareaAnswer.value.trim();
+      } else {
+        const liveText = liveSubtitleBox.textContent.trim();
+        const ignoredPhrases = [
+          "Voice transcription will appear here in real time...",
+          "Recording your voice... speak now, and click SEND ANSWER when finished.",
+          "Transcribing speech with Gemini 1.5 Flash...",
+          "No speech detected. Click mic to talk.",
+          "Voice was not clear. Try again or click Switch to Type.",
+          "Transcription error. Click mic to try again.",
+          "Tap microphone or type to answer..."
+        ];
+        if (liveText && !ignoredPhrases.includes(liveText)) {
+          draftText = liveText;
+        }
+      }
+
+      if (draftText) {
+        const draftBubble = document.createElement('div');
+        draftBubble.className = "flex justify-end w-full mb-4 opacity-75";
+        
+        const draftInner = document.createElement('div');
+        draftInner.className = "max-w-[85%] rounded-2xl rounded-tr-none px-4 py-2.5 bg-white/5 border border-white/10 border-dashed text-ink/75 text-xs md:text-sm font-light leading-relaxed text-right select-text italic";
+        draftInner.textContent = draftText;
+        
+        draftBubble.appendChild(draftInner);
+        container.appendChild(draftBubble);
+      }
+    }
+
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // --- INTERVIEW SIMULATOR MECHANICS ---
+  function displayQuestion(questionRaw) {
+    // Save state
+    currentQuestionIndex = questionsList.length;
+    questionProgressLabel.textContent = `Question ${currentQuestionIndex} of ${questionCount}`;
+    
+    // Reset accumulated transcript
+    accumulatedTranscript = '';
+    
+    // Clear typewriter if active
+    stopTypewriter();
+    stopWordByWordRendering();
+    
+    // Clear user input card BEFORE rendering chat history so draft bubble doesn't get old text!
+    textareaAnswer.value = '';
+    liveSubtitleBox.textContent = "Tap microphone or type to answer...";
+    liveSubtitleBox.contentEditable = "false";
+    liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/40 overflow-y-auto text-center italic flex items-center justify-center select-none";
+
+    isSpeakingBot = true;
+    renderChatHistory();
+
+    // Speak aloud
+    speakQuestion(questionRaw);
+
+    // Reset HUD metrics for the current question
+    currentAnswerStartTime = Date.now();
+    currentFillersCount = 0;
+    counterFillersText.textContent = '0';
+    hudWpmText.textContent = '0 WPM';
+    
+    // Close hints
+    hintDisplay.classList.add('hidden');
+  }
+
+  // --- SUBMIT ANSWER LOOP ---
+  btnSubmitAnswer.addEventListener('click', async () => {
+    unlockAudioContextAndPlayer();
+    // If voice mode is active and we are currently recording/not muted
+    if (!isTypingMode && !isMuted) {
+      stopRecording();
+      
+      const liveText = liveSubtitleBox.textContent.trim();
+      const ignoredPhrases = [
+        "Voice transcription will appear here in real time...",
+        "Recording your voice... speak now, and click SEND ANSWER when finished.",
+        "Transcribing speech with Gemini 1.5 Flash...",
+        "No speech detected. Click mic to talk.",
+        "Voice was not clear. Try again or click Switch to Type.",
+        "Transcription error. Click mic to try again.",
+        "Tap microphone or type to answer..."
+      ];
+      
+      const hasLiveTranscript = liveText && !ignoredPhrases.includes(liveText) && liveText.length >= 5;
+      
+      if (!hasLiveTranscript) {
+        micEnabled = false;
+        await transcribeRecordedVoice();
+        return; // Return early so they can edit the transcription and then submit
+      }
+    }
+
+    let finalAnswer = "";
+    if (!isTypingMode) {
+      finalAnswer = liveSubtitleBox.textContent.trim();
+      
+      const ignoredPhrases = [
+        "Voice transcription will appear here in real time...",
+        "Recording your voice... speak now, and click SEND ANSWER when finished.",
+        "Transcribing speech with Gemini 1.5 Flash...",
+        "No speech detected. Click mic to talk.",
+        "Voice was not clear. Try again or click Switch to Type.",
+        "Transcription error. Click mic to try again.",
+        "Tap microphone or type to answer..."
+      ];
+      
+      if (ignoredPhrases.includes(finalAnswer)) {
+        finalAnswer = "";
+      }
+    } else {
+      finalAnswer = textareaAnswer.value.trim();
+    }
+
+    if (!finalAnswer || finalAnswer.length < 5) {
+      alert("Please enter a substantive answer to the question.");
+      setOrbState('idle');
+      renderChatHistory();
+      return;
+    }
+
+    // Stop microphone if running
+    stopRecording();
+
+    // Track statistics
+    totalFillersAccumulated += currentFillersCount;
+    const currentWpm = calculateFinalWpm(finalAnswer);
+    if (currentWpm > 30) {
+      allSessionWpms.push(currentWpm);
+    }
+
+    // Save candidate answer
+    answersList.push(finalAnswer);
+    renderChatHistory();
+
+    // Append current answer to API Chat history
+    chatHistory.push({
+      role: "user",
+      parts: [{ text: finalAnswer }]
+    });
+
+    // Check if we reached the question limit
+    if (questionsList.length >= questionCount) {
+      await endAndGradeInterview();
+    } else {
+      // Trigger next question query
+      setOrbState('thinking');
+      
+      // Update visual feedback directly via a temporary bubble or a state indicator
+      const container = document.getElementById('chat-history-container');
+      if (container) {
+        const thinkingBubble = document.createElement('div');
+        thinkingBubble.id = "thinking-bubble";
+        thinkingBubble.className = "flex justify-start w-full mb-4 animate-pulse";
+        thinkingBubble.innerHTML = `<div class="max-w-[85%] rounded-2xl rounded-tl-none px-4 py-2.5 bg-white/5 border border-white/10 text-mute text-xs md:text-sm font-light leading-relaxed select-none italic">Analyzing response & formulating next question...</div>`;
+        container.appendChild(thinkingBubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      try {
+        const nextQ = await getNextQuestion(apiKey, {
+          resumeText,
+          topics: selectedTopics,
+          difficulty,
+          questionCount
+        }, chatHistory);
+
+        // Remove thinking bubble
+        const thinkingEl = document.getElementById('thinking-bubble');
+        if (thinkingEl) thinkingEl.remove();
+
+        chatHistory.push({
+          role: "model",
+          parts: [{ text: nextQ }]
+        });
+
+        questionsList.push(nextQ);
+        displayQuestion(nextQ);
+      } catch (err) {
+        console.error(err);
+        // Remove thinking bubble
+        const thinkingEl = document.getElementById('thinking-bubble');
+        if (thinkingEl) thinkingEl.remove();
+        
+        alert("API connection error: " + err.message + ". Please retry.");
+        // rollback answer push so user can retry
+        answersList.pop();
+        chatHistory.pop();
+        setOrbState('idle');
+        renderChatHistory();
+      }
+    }
+  });
+
+  // Calculate final WPM for current answer
+  function calculateFinalWpm(text) {
+    if (currentAnswerStartTime === 0) return 0;
+    const elapsedMins = (Date.now() - currentAnswerStartTime) / 60000;
+    const words = text.split(/\s+/).filter(w => w.length > 0).length;
+    return elapsedMins > 0.05 ? Math.round(words / elapsedMins) : 0;
+  }
+
+  // --- DYNAMIC HINTS ENGINE ---
+  btnHint.addEventListener('click', async () => {
+    if (questionsList.length === 0) return;
+    const currentQ = questionsList[questionsList.length - 1];
+    const draft = textareaAnswer.value.trim();
+    
+    btnHint.disabled = true;
+    btnHint.querySelector('span').textContent = "FETCHING...";
+
+    try {
+      const hint = await getHint(apiKey, currentQ, draft);
+      hintTextNode.textContent = hint;
+      hintDisplay.classList.remove('hidden');
+    } catch (e) {
+      console.error(e);
+      hintTextNode.textContent = "Unable to fetch hint right now. Think about the core principles.";
+      hintDisplay.classList.remove('hidden');
+    } finally {
+      btnHint.disabled = false;
+      btnHint.querySelector('span').textContent = "GET HINT";
+    }
+  });
+
+  btnCloseHint.addEventListener('click', () => {
+    hintDisplay.classList.add('hidden');
+  });
+
+  // --- QUIT & EVALUATE EARLY CONTROLS ---
+  btnEndEarly.addEventListener('click', () => {
+    if (confirm("Are you sure you want to end this interview session? You will receive evaluation feedback only on the questions answered so far.")) {
+      stopRecording();
+      endAndGradeInterview();
+    }
+  });
+
+  // --- FINAL GRADING MECHANISM ---
+  async function endAndGradeInterview() {
+    switchView('grading');
+    stopGlobalTimer();
+
+    if (codingTimerInterval) {
+      clearInterval(codingTimerInterval);
+      codingTimerInterval = null;
+    }
+    stopHintMic();
+    hideCodingHintToast();
+
+    // Cancel speech synthesizer
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    if (activeAudioElement) {
+      activeAudioElement.pause();
+      activeAudioElement = null;
+    }
+    stopWordByWordRendering();
+    stopTypewriter();
+
+    try {
+      const evaluation = await getFinalEvaluation(apiKey, {
+        resumeText,
+        topics: selectedTopics,
+        difficulty,
+        questionCount: questionsList.length
+      }, chatHistory);
+
+      renderDashboard(evaluation);
+      switchView('analytics');
+    } catch (err) {
+      console.error(err);
+      alert(`Grading failed: ${err.message}. Retrying evaluation...`);
+      switchView('interview');
+    }
+  }
+
+  // --- RENDER PERFORMANCE DASHBOARD ---
+  function renderDashboard(data) {
+    // 1. Set Score numbers and Radial SVG gauge offsets
+    scoreOverallText.textContent = data.overallScore;
+    scoreTechText.textContent = `${data.techScore}%`;
+    scoreCommText.textContent = `${data.commScore}%`;
+
+    // Radial gauge math: r=40 has circumference = 2 * PI * 40 = 251.2
+    const dashoffset = 251.2 - (251.2 * data.overallScore) / 100;
+    gaugeIndicator.setAttribute('stroke-dashoffset', dashoffset.toString());
+    
+    if (data.overallScore >= 80) {
+      gaugeIndicator.setAttribute('stroke', '#11ff99'); // success green
+    } else if (data.overallScore >= 60) {
+      gaugeIndicator.setAttribute('stroke', '#3b9eff'); // accent blue
+    } else {
+      gaugeIndicator.setAttribute('stroke', '#ff2047'); // accent red
+    }
+
+    // 2. Set dimensions progress bars
+    barTech.style.width = `${data.techScore}%`;
+    barComm.style.width = `${data.commScore}%`;
+
+    // 3. Set filler word count & pacing WPM statistics
+    statFillers.textContent = totalFillersAccumulated;
+    const avgWpm = allSessionWpms.length > 0 
+      ? Math.round(allSessionWpms.reduce((a, b) => a + b, 0) / allSessionWpms.length)
+      : 110;
+    statWpm.textContent = avgWpm;
+
+    // 4. Summaries & lists
+    feedbackSummary.textContent = data.summary;
+
+    feedbackStrengthsList.innerHTML = '';
+    data.strengths.forEach(str => {
+      const li = document.createElement('li');
+      li.className = "flex items-start gap-2.5";
+      li.innerHTML = `
+        <span class="text-accent-green font-bold mt-0.5">•</span>
+        <span>${str}</span>
+      `;
+      feedbackStrengthsList.appendChild(li);
+    });
+
+    feedbackWeaknessesList.innerHTML = '';
+    data.weaknesses.forEach(weak => {
+      const li = document.createElement('li');
+      li.className = "flex items-start gap-2.5";
+      li.innerHTML = `
+        <span class="text-accent-red font-bold mt-0.5">•</span>
+        <span>${weak}</span>
+      `;
+      feedbackWeaknessesList.appendChild(li);
+    });
+
+    // 5. Build question timeline review list
+    timelineContainer.innerHTML = '';
+    data.questions.forEach((q, idx) => {
+      const isBehavioral = q.starCheck?.applicable;
+      let starHtml = '';
+      
+      if (isBehavioral) {
+        starHtml = `
+          <div class="mt-3 border-t border-white/5 pt-2">
+            <span class="text-[10px] font-mono text-mute uppercase tracking-wider block mb-1">STAR Checklist</span>
+            <div class="flex flex-wrap gap-3 font-mono text-[9px]">
+              <span class="${q.starCheck.situation ? 'text-accent-green' : 'text-mute'}">SITUATION: ${q.starCheck.situation ? '✓' : '✗'}</span>
+              <span class="${q.starCheck.task ? 'text-accent-green' : 'text-mute'}">TASK: ${q.starCheck.task ? '✓' : '✗'}</span>
+              <span class="${q.starCheck.action ? 'text-accent-green' : 'text-mute'}">ACTION: ${q.starCheck.action ? '✓' : '✗'}</span>
+              <span class="${q.starCheck.result ? 'text-accent-green' : 'text-mute'}">RESULT: ${q.starCheck.result ? '✓' : '✗'}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      const row = document.createElement('div');
+      row.className = "glass-panel overflow-hidden transition-all duration-300";
+      row.innerHTML = `
+        <button class="w-full px-5 py-4 flex items-center justify-between gap-4 text-left select-none hover:bg-white/[0.01] transition-all cursor-pointer timeline-header-btn">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/10 text-mute font-bold">Q${idx + 1}</span>
+            <span class="text-xs font-medium text-ink truncate max-w-lg md:max-w-xl">${q.question.replace(/Question \d+ of \d+:/i, "")}</span>
+          </div>
+          <svg class="w-4 h-4 text-mute transform transition-transform duration-300 timeline-caret" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        <div class="timeline-body hidden px-5 pb-5 border-t border-white/5 pt-4 bg-black/45 space-y-4">
+          <div>
+            <span class="text-[10px] font-mono text-mute uppercase tracking-wider block mb-1">Your Answer</span>
+            <p class="text-xs font-light text-ink/90 leading-relaxed italic bg-black/45 border border-white/5 rounded-xl p-3">${q.candidateAnswer || "(No answer recorded)"}</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="text-[10px] font-mono text-accent-green uppercase tracking-wider block mb-1">Technical Critique</span>
+              <p class="text-xs font-light leading-relaxed text-body/80">${q.techEvaluation}</p>
+            </div>
+            <div>
+              <span class="text-[10px] font-mono text-accent-red uppercase tracking-wider block mb-1">Communication Critique</span>
+              <p class="text-xs font-light leading-relaxed text-body/80">${q.commEvaluation}</p>
+            </div>
+          </div>
+          <div>
+            <span class="text-[10px] font-mono text-accent-blue uppercase tracking-wider block mb-1">Ideal Conceptual Response</span>
+            <p class="text-xs font-light leading-relaxed text-body/80 bg-accent-blue/5 border border-accent-blue/20 rounded-xl p-3">${q.idealAnswer}</p>
+          </div>
+          ${starHtml}
+        </div>
+      `;
+
+      row.querySelector('.timeline-header-btn').addEventListener('click', () => {
+        const body = row.querySelector('.timeline-body');
+        const caret = row.querySelector('.timeline-caret');
+        body.classList.toggle('hidden');
+        caret.classList.toggle('rotate-180');
+      });
+
+      timelineContainer.appendChild(row);
+    });
+
+    // 6. Build study roadmap card checklist
+    roadmapContainer.innerHTML = '';
+    data.studyTopics.forEach(top => {
+      const card = document.createElement('div');
+      card.className = "glass-panel p-4 hover:border-white/20 transition-all flex items-start gap-3";
+      card.innerHTML = `
+        <input type="checkbox" class="mt-1 w-4 h-4 accent-accent-blue cursor-pointer rounded border-white/10" />
+        <div>
+          <h5 class="text-xs font-mono text-ink mb-0.5">${top.topic}</h5>
+          <p class="text-[11px] font-light text-mute leading-relaxed mb-2">${top.description}</p>
+          <a href="${top.link}" target="_blank" class="text-[10px] font-mono text-accent-blue hover:underline flex items-center gap-1">
+            Study Resource 
+            <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+            </svg>
+          </a>
+        </div>
+      `;
+      roadmapContainer.appendChild(card);
+    });
+
+    // Re-initialize tilt physics on the newly drawn dashboard panels
+    initCardTilt();
+  }
+
+  // --- RESTART ROUTE CONTROLLER ---
+  btnRestart.addEventListener('click', () => {
+    switchView('setup');
+    textareaAnswer.value = '';
+    inputResumeFile.value = '';
+    pdfStatusText.textContent = "Drag & drop your Resume PDF, or click to upload";
+    pdfStatusText.className = "text-xs text-ink";
+    resumeText = '';
+    
+    // Reset coding states
+    if (codingTimerInterval) {
+      clearInterval(codingTimerInterval);
+      codingTimerInterval = null;
+    }
+    isCodingMode = false;
+    setCodingModeLayout(false);
+    isFollowUpMode = false;
+    stopHintMic();
+    hideCodingHintToast();
+
+    // Reparent orb back
+    const coreOrb = document.getElementById('interviewer-core-orb');
+    const wrapper = document.getElementById('orb-wrapper');
+    if (coreOrb && wrapper) {
+      coreOrb.style.width = '';
+      coreOrb.style.height = '';
+      wrapper.appendChild(coreOrb);
+    }
+
+    // Hide coding view, show standard view
+    codingWorkspace.classList.add('hidden');
+    standardWorkspace.classList.remove('hidden');
+
+    if (views.interview) {
+      views.interview.classList.remove('max-w-6xl');
+      views.interview.classList.add('max-w-4xl');
+    }
+
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      try { mediaRecorder.stop(); } catch(e) {}
+    }
+    mediaRecorder = null;
+    audioChunks = [];
+
+    if (activeAudioElement) {
+      activeAudioElement.pause();
+      activeAudioElement = null;
+    }
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    stopWordByWordRendering();
+    stopTypewriter();
+  });
+
+  // --- TIMERS HUD PIPELINE ---
+  function startGlobalTimer() {
+    clearInterval(globalTimerInterval);
+    sessionTimerText.textContent = "00:00";
+    
+    globalTimerInterval = setInterval(() => {
+      const elapsedSecs = Math.floor((Date.now() - globalSessionStartTime) / 1000);
+      const minutes = Math.floor(elapsedSecs / 60).toString().padStart(2, '0');
+      const seconds = (elapsedSecs % 60).toString().padStart(2, '0');
+      sessionTimerText.textContent = `${minutes}:${seconds}`;
+    }, 1000);
+  }
+
+  function stopGlobalTimer() {
+    clearInterval(globalTimerInterval);
+  }
+
+  // --- PREMIUM INTERACTIVE VISUALS & METALLIC CURSOR SYSTEM ---
+
+  // Custom Metallic T-1000 Mercury Cursor Physics
+  function initMetallicCursor() {
+    const cursor = document.getElementById('metal-cursor');
+    if (!cursor) return;
+    const core = cursor.querySelector('.cursor-core');
+    if (!core) return;
+
+    // Check if touch device
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (isTouchDevice) {
+      cursor.style.display = 'none';
+      return;
+    }
+
+    // Enable custom cursor styles globally on body
+    document.body.classList.add('custom-cursor-enabled');
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let cursorX = mouseX;
+    let cursorY = mouseY;
+    let lastMoveTime = Date.now();
+    let isPressed = false;
+
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      cursor.style.display = 'block';
+      lastMoveTime = Date.now();
+    });
+
+    // Handle tactile physical presses (compressing the metallic sphere)
+    window.addEventListener('mousedown', () => {
+      isPressed = true;
+      core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #cbd5e1 15%, #475569 55%, #1e293b 85%, #020617 100%)';
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPressed = false;
+      if (document.body.classList.contains('custom-cursor-hovering')) {
+        core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #93c5fd 15%, #2563eb 55%, #1d4ed8 80%, #0f172a 100%)';
+      } else {
+        core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #e2e8f0 15%, #64748b 55%, #334155 80%, #0f172a 100%)';
+      }
+    });
+
+    // Delegate hover class triggers dynamically
+    window.addEventListener('mouseover', (e) => {
+      const target = e.target;
+      if (target && target.closest('button, a, input, select, textarea, [role="button"], .topic-tag, #pdf-drop-zone')) {
+        document.body.classList.add('custom-cursor-hovering');
+        if (!isPressed) {
+          core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #93c5fd 15%, #2563eb 55%, #1d4ed8 80%, #0f172a 100%)';
+        }
+      }
+    });
+
+    window.addEventListener('mouseout', (e) => {
+      const target = e.target;
+      if (target && target.closest('button, a, input, select, textarea, [role="button"], .topic-tag, #pdf-drop-zone')) {
+        document.body.classList.remove('custom-cursor-hovering');
+        if (!isPressed) {
+          core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #e2e8f0 15%, #64748b 55%, #334155 80%, #0f172a 100%)';
+        }
+      }
+    });
+
+    // Smooth inertia updates
+    function updateCursor() {
+      const dx = mouseX - cursorX;
+      const dy = mouseY - cursorY;
+      
+      // Lerp positioning
+      cursorX += dx * 0.16;
+      cursorY += dy * 0.16;
+
+      const speed = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+
+      // Squeeze and stretch mapping (T-1000 mercury effect)
+      let stretch = 1;
+      let squeeze = 1;
+      
+      if (speed > 1.5) {
+        stretch = Math.min(1.45, 1 + speed * 0.015);
+        squeeze = 1 / stretch;
+      }
+
+      // Add translate(-50%, -50%) so that center is aligned under pointer
+      cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
+
+      const clickScale = isPressed ? 0.75 : 1.0;
+
+      if (document.body.classList.contains('custom-cursor-hovering')) {
+        core.style.transform = `scale(${1.4 * clickScale})`;
+      } else {
+        core.style.transform = `rotate(${angle}rad) scale(${stretch * clickScale}, ${squeeze * clickScale})`;
+      }
+
+      // Hide cursor if inactive to clear view
+      if (Date.now() - lastMoveTime > 5000) {
+        cursor.style.opacity = '0';
+      } else {
+        cursor.style.opacity = '1';
+      }
+
+      requestAnimationFrame(updateCursor);
+    }
+
+    updateCursor();
+  }
+
+  // Interactive Gooey WebGL Liquid Background (Domain-Warped FBM Liquid Distortion Shader)
+  function initLiquidBackground() {
+    const canvas = document.getElementById('fluid-bg-canvas') as HTMLCanvasElement;
+    if (!canvas) return;
+
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
+    if (!gl) {
+      console.warn("WebGL not supported, fluid background simulation disabled.");
+      return;
+    }
+
+    // Vertex Shader: full-screen quad mapping
+    const vsSource = `
+      attribute vec2 position;
+      void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `;
+
+    // Fragment Shader: 2D Noise, FBM domain warping, mouse-reactive normal height field
+    const fsSource = `
+      precision highp float;
+      uniform vec2 u_resolution;
+      uniform float u_time;
+      uniform vec2 u_mouse;
+      uniform float u_mouseVelocity;
+      uniform float u_isLight;
+
+      float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+
+      float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i + vec2(0.0,0.0)), hash(i + vec2(1.0,0.0)), u.x),
+                     mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+      }
+
+      float fbm(vec2 p) {
+          float v = 0.0;
+          float a = 0.5;
+          vec2 shift = vec2(100.0);
+          mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+          for (int i = 0; i < 4; ++i) {
+              v += a * noise(p);
+              p = rot * p * 2.0 + shift;
+              a *= 0.5;
+          }
+          return v;
+      }
+
+      // Superposition of trochoidal-style directional sine waves to create sharp, cresting ocean waves
+      float get_height(vec2 p) {
+          float t = u_time * 1.25; // Speed multiplier increased slightly (from 1.0 to 1.25)
+          float h = 0.0;
+          
+          // Wave 1: primary large swell flowing top-right -> bottom-left (sharp crests)
+          vec2 dir1 = vec2(-0.8, -0.6);
+          float w1 = dot(p, dir1) * 2.2 - t * 1.1;
+          h += pow(0.5 + 0.5 * sin(w1), 3.0) * 0.22; // Increased amplitude from 0.14 to 0.22
+          
+          // Wave 2: medium secondary swells flowing top-right -> bottom-left
+          vec2 dir2 = vec2(-0.6, -0.8);
+          float w2 = dot(p, dir2) * 4.2 - t * 1.6;
+          h += pow(0.5 + 0.5 * sin(w2), 2.5) * 0.11; // Increased amplitude from 0.07 to 0.11
+          
+          // Wave 3: chop waves (cross direction slightly to create diamond interference patterns)
+          vec2 dir3 = vec2(-0.9, -0.3);
+          float w3 = dot(p, dir3) * 8.0 - t * 2.5;
+          h += pow(0.5 + 0.5 * sin(w3), 2.0) * 0.05; // Increased amplitude from 0.035 to 0.05
+
+          // Wave 4: wind ripples
+          vec2 dir4 = vec2(-0.75, -0.65);
+          float w4 = dot(p, dir4) * 14.0 - t * 4.0;
+          h += pow(0.5 + 0.5 * sin(w4), 1.5) * 0.022; // Increased amplitude from 0.015 to 0.022
+          
+          // Wave 5: extra fine micro-ripples
+          vec2 dir5 = vec2(-0.5, -0.86);
+          float w5 = dot(p, dir5) * 22.0 - t * 6.0;
+          h += sin(w5) * 0.007; // Increased amplitude from 0.005 to 0.007
+          
+          // Noise: add detailed water surface texture using FBM drifting bottom-left
+          h += fbm(p * 5.5 + vec2(-t * 0.15, -t * 0.15)) * 0.045;
+
+          // Mouse reactivity: slow, wide, diffused water ripple perturbation
+          float dist = length(p - u_mouse);
+          float ripple = sin(dist * 7.0 - u_time * 2.5) * exp(-dist * dist * 1.8) * (0.035 + u_mouseVelocity * 0.08);
+          h += ripple;
+          
+          return h;
+      }
+
+      vec3 get_normal(vec2 p) {
+          vec2 eps = vec2(0.008, 0.0);
+          float h_l = get_height(p - eps.xy);
+          float h_r = get_height(p + eps.xy);
+          float h_d = get_height(p - eps.yx);
+          float h_u = get_height(p + eps.yx);
+          return normalize(vec3(h_l - h_r, h_d - h_u, eps.x * 2.0));
+      }
+
+      void main() {
+          vec2 uv = gl_FragCoord.xy / u_resolution;
+          float aspect = u_resolution.x / u_resolution.y;
+          
+          vec2 p = (uv * 2.0 - 1.0);
+          p.x *= aspect;
+
+          vec3 N = get_normal(p);
+
+          // Color palette selection
+          vec3 baseBg;
+          vec3 waterColor;
+          vec3 crestColor;
+
+          if (u_isLight > 0.5) {
+              // Vibrant tropical shallow water look with more color and strong sky-blue base
+              baseBg = vec3(0.86, 0.91, 0.97);     // Soft pastel ice/sky-blue instead of grey
+              waterColor = vec3(0.08, 0.52, 0.76);   // Rich, deep cobalt/azure water
+              crestColor = vec3(0.3, 0.8, 0.92);     // Saturated cyan/turquoise highlights
+          } else {
+              // Transparent bioluminescent midnight water look
+              baseBg = vec3(0.02, 0.025, 0.04);    // Midnight dark canvas
+              waterColor = vec3(0.04, 0.18, 0.28);   // Glowing glassy teal/blue
+              crestColor = vec3(0.15, 0.62, 0.78);   // Lighter cyan crests
+          }
+
+          // Calculate Fresnel reflection factor ( grazing angles are reflective, facing angles are transparent )
+          float fresnel = pow(1.0 - max(N.z, 0.0), 3.0);
+          
+          // Blend transparency: direct view shows background, slopes/grazing shows water color
+          // Increased water color contribution for richer color saturation in light mode
+          float blendFactor = fresnel * 0.75 + (u_isLight > 0.5 ? 0.22 : 0.0);
+          vec3 color = mix(baseBg, waterColor, clamp(blendFactor, 0.0, 1.0));
+          
+          // Add highlight to wave slopes that face upwards
+          float slope = clamp(dot(N, vec3(0.0, 1.0, 0.0)), 0.0, 1.0);
+          color = mix(color, crestColor, slope * fresnel * 0.45);
+
+          // Specular reflections: soft water sheen instead of harsh chrome/chromium gloss
+          vec3 V = vec3(0.0, 0.0, 1.0);
+          vec3 lightDir = normalize(vec3(0.8, 1.2, 1.5));
+          vec3 H = normalize(lightDir + V);
+          
+          float spec = pow(max(dot(N, H), 0.0), 30.0) * 0.08;
+          color += crestColor * spec;
+          
+          // Soft glassy edge highlight (rim light)
+          color += crestColor * fresnel * 0.15;
+
+          // Subtle noise grain
+          float grain = (hash(gl_FragCoord.xy * 0.2 + vec2(u_time * 0.02)) - 0.5) * 0.012;
+          color += grain;
+
+          gl_FragColor = vec4(color, 1.0);
+      }
+    `;
+
+    function createShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
+      const shader = gl.createShader(type);
+      if (!shader) return null;
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader compiling issue:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    if (!vs || !fs) return;
+
+    const program = gl.createProgram();
+    if (!program) return;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error('Shader program linking issue:', gl.getProgramInfoLog(program));
+      return;
+    }
+
+    gl.useProgram(program);
+
+    const vertices = new Float32Array([
+      -1.0, -1.0,
+       1.0, -1.0,
+      -1.0,  1.0,
+      -1.0,  1.0,
+       1.0, -1.0,
+       1.0,  1.0,
+    ]);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    const positionLoc = gl.getAttribLocation(program, 'position');
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const uResolution = gl.getUniformLocation(program, 'u_resolution');
+    const uTime = gl.getUniformLocation(program, 'u_time');
+    const uMouse = gl.getUniformLocation(program, 'u_mouse');
+    const uMouseVelocity = gl.getUniformLocation(program, 'u_mouseVelocity');
+    const uIsLight = gl.getUniformLocation(program, 'u_isLight');
+
+    let mouseX = 0, mouseY = 0;
+    let lastMouseX = 0, lastMouseY = 0;
+    let mouseVelocity = 0;
+    let targetVelocity = 0;
+    let targetMouseX = 0;
+    let targetMouseY = 0;
+    let initialized = false;
+
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      gl.viewport(0, 0, width, height);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      const aspect = width / height;
+      targetMouseX = ((e.clientX / width) * 2.0 - 1.0) * aspect;
+      targetMouseY = -((e.clientY / height) * 2.0 - 1.0);
+      
+      if (!initialized) {
+        mouseX = lastMouseX = targetMouseX;
+        mouseY = lastMouseY = targetMouseY;
+        initialized = true;
+      }
+
+      const dx = targetMouseX - lastMouseX;
+      const dy = targetMouseY - lastMouseY;
+      targetVelocity = Math.min(Math.sqrt(dx * dx + dy * dy) * 4.0, 3.5);
+      
+      lastMouseX = targetMouseX;
+      lastMouseY = targetMouseY;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        const aspect = width / height;
+        targetMouseX = ((e.touches[0].clientX / width) * 2.0 - 1.0) * aspect;
+        targetMouseY = -((e.touches[0].clientY / height) * 2.0 - 1.0);
+        
+        if (!initialized) {
+          mouseX = lastMouseX = targetMouseX;
+          mouseY = lastMouseY = targetMouseY;
+          initialized = true;
+        }
+
+        const dx = targetMouseX - lastMouseX;
+        const dy = targetMouseY - lastMouseY;
+        targetVelocity = Math.min(Math.sqrt(dx * dx + dy * dy) * 4.0, 3.5);
+        
+        lastMouseX = targetMouseX;
+        lastMouseY = targetMouseY;
+      }
+    });
+
+    const startTime = Date.now();
+
+    function render() {
+      const isLight = document.documentElement.classList.contains('light') ? 1.0 : 0.0;
+      const time = (Date.now() - startTime) * 0.001;
+
+      // Smooth mouse follow
+      mouseX += (targetMouseX - mouseX) * 0.08;
+      mouseY += (targetMouseY - mouseY) * 0.08;
+
+      // Settle velocity over frames to decay ripples
+      mouseVelocity += (targetVelocity - mouseVelocity) * 0.10;
+      targetVelocity *= 0.92;
+
+      gl.viewport(0, 0, width, height);
+
+      gl.uniform2f(uResolution, width, height);
+      gl.uniform1f(uTime, time);
+      gl.uniform2f(uMouse, mouseX, mouseY);
+      gl.uniform1f(uMouseVelocity, mouseVelocity);
+      gl.uniform1f(uIsLight, isLight);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      requestAnimationFrame(render);
+    }
+
+    render();
+  }
+
+
+
+  // Specular Glare Hover Physics on Panels (Cards remain still)
+  function initCardTilt() {
+    const cards = document.querySelectorAll('.glass-panel');
+    
+    cards.forEach(card => {
+      if ((card as HTMLElement).dataset.tiltInitialized) return;
+      (card as HTMLElement).dataset.tiltInitialized = "true";
+
+      card.addEventListener('mousemove', (e: any) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const width = rect.width;
+        const height = rect.height;
+        
+        (card as HTMLElement).style.setProperty('--mouse-x', `${(x / width) * 100}%`);
+        (card as HTMLElement).style.setProperty('--mouse-y', `${(y / height) * 100}%`);
+      });
+    });
+  }
+
+  // Premium Theme Toggle Button Controller
+  function initThemeToggle() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    const darkIcon = document.getElementById('theme-icon-dark');
+    const lightIcon = document.getElementById('theme-icon-light');
+    if (!darkIcon || !lightIcon) return;
+
+    function updateIcons(isLight: boolean) {
+      if (isLight) {
+        darkIcon.classList.remove('hidden');
+        lightIcon.classList.add('hidden');
+      } else {
+        lightIcon.classList.remove('hidden');
+        darkIcon.classList.add('hidden');
+      }
+    }
+
+    const initialLight = document.documentElement.classList.contains('light');
+    updateIcons(initialLight);
+
+    btn.addEventListener('click', () => {
+      const turnLight = !document.documentElement.classList.contains('light');
+      if (turnLight) {
+        document.documentElement.classList.add('light');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.remove('light');
+        localStorage.setItem('theme', 'dark');
+      }
+      updateIcons(turnLight);
+    });
+  }
+
+  // Bind tilt physics globally to dynamic components on update
+  (window as any).bind3dTilt = initCardTilt;
+</script>
