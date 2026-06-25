@@ -679,6 +679,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   let mediaRecorder = null;
   let audioChunks = [];
   let audioResolve = null;
+  let currentRecordingResolver = null;
+  let currentRecordingPromise = null;
+  let currentStream = null;
+  let gainNode = null;
   let activeAudioElement = null;
   const sharedAudioPlayer = new Audio();
   Object.defineProperty(window, 'activeAudioElement', {
@@ -981,6 +985,14 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   // --- SPEECH RECOGNITION & MEDIARECORDER PIPELINE (STT) ---
   async function initAudioRecorder() {
     try {
+      // 0. Stop old stream tracks to release microphone hardware and reset state
+      if (currentStream) {
+        try {
+          currentStream.getTracks().forEach(track => track.stop());
+        } catch (e) {}
+        currentStream = null;
+      }
+
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ 
@@ -994,6 +1006,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         console.warn("Advanced audio constraints failed, retrying with basic constraints...", constraintsError);
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
+      currentStream = stream;
       
       // Initialize Web Audio API Analyser Node and Noise Filtering
       if (!audioContext) {
@@ -1003,7 +1016,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         audioSource = audioContext.createMediaStreamSource(stream);
         
         // 1.5. Create Gain Node to boost microphone sensitivity by 4.0x (~12dB)
-        const gainNode = audioContext.createGain();
+        gainNode = audioContext.createGain();
         gainNode.gain.value = 4.0;
         
         // 2. Create highpass filter to cut off low frequency rumble (e.g. traffic, AC hum, below 150Hz)
@@ -1051,23 +1064,47 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         compressor.connect(analyserNode);
         
         filteredStream = destination.stream;
+      } else {
+        // Re-route the new media stream source to our existing audio graph
+        if (audioSource) {
+          try {
+            audioSource.disconnect();
+          } catch (e) {}
+        }
+        audioSource = audioContext.createMediaStreamSource(stream);
+        audioSource.connect(gainNode);
       }
       
-      if (!mediaRecorder) {
-        mediaRecorder = new MediaRecorder(filteredStream || stream);
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            audioChunks.push(event.data);
-          }
-        };
-        mediaRecorder.onstop = () => {
-          if (audioResolve) {
-            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-            audioResolve(blob);
-            audioResolve = null;
-          }
-        };
+      // Explicitly resume audioContext if browser or autoplay policy suspended it
+      if (audioContext && audioContext.state === 'suspended') {
+        await audioContext.resume().catch(e => console.warn("Failed to resume audioContext:", e));
       }
+
+      // Recreate MediaRecorder to attach event handlers directly to the new stream
+      if (mediaRecorder) {
+        try {
+          mediaRecorder.ondataavailable = null;
+          mediaRecorder.onstop = null;
+        } catch (e) {}
+      }
+      
+      mediaRecorder = new MediaRecorder(filteredStream || stream);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        if (currentRecordingResolver) {
+          currentRecordingResolver(blob);
+          currentRecordingResolver = null;
+        }
+        if (audioResolve) {
+          audioResolve(blob);
+          audioResolve = null;
+        }
+      };
 
       isVirtualMic = false;
       return true;
@@ -1159,6 +1196,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     isMuted = false;
     currentAnswerStartTime = Date.now();
     audioChunks = [];
+    currentRecordingPromise = new Promise((resolve) => {
+      currentRecordingResolver = resolve;
+    });
 
     const hasMicAccess = await initAudioRecorder();
     if (!hasMicAccess) {
@@ -1166,6 +1206,11 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       isMuted = true;
       switchToTextMode();
       return;
+    }
+
+    // Freshly initialize speech recognition instance to avoid browser lifecycle issues
+    if (!isVirtualMic) {
+      setupSpeechRecognition();
     }
 
     if (isVirtualMic) {
@@ -1314,6 +1359,14 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       } catch (e) {}
     }
 
+    // Stop microphone stream tracks to turn off the hardware mic light
+    if (currentStream) {
+      try {
+        currentStream.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+      currentStream = null;
+    }
+
     setOrbState('idle');
     btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
     
@@ -1328,21 +1381,23 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   // Helper to fetch recorded blob with a Promise wrapper if active
   async function getRecordedAudioBlob() {
     if (!mediaRecorder) return null;
-    if (mediaRecorder.state === 'inactive') {
-      if (audioChunks.length > 0) {
-        return new Blob(audioChunks, { type: 'audio/webm' });
-      }
-      return null;
-    }
-    return new Promise((resolve) => {
-      audioResolve = resolve;
+    
+    if (mediaRecorder.state === 'recording') {
       try {
         mediaRecorder.stop();
       } catch (err) {
         console.error("Error stopping recorder in getRecordedAudioBlob:", err);
-        resolve(null);
       }
-    });
+    }
+    
+    if (currentRecordingPromise) {
+      return currentRecordingPromise;
+    }
+    
+    if (audioChunks.length > 0) {
+      return new Blob(audioChunks, { type: 'audio/webm' });
+    }
+    return null;
   }
 
   // Convert Blob to Base64 helper
