@@ -8,10 +8,8 @@ const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini
 /**
  * Common fetch helper for Gemini API
  */
-async function callLocalFallback(payload) {
+async function callLocalFallback(payload, apiKey = "") {
   const systemInstruction = payload.systemInstruction?.parts?.[0]?.text || "";
-  let prompt = "";
-  let suffix = "";
   let modelTurns = 0;
   let totalCount = 5;
 
@@ -19,17 +17,6 @@ async function callLocalFallback(payload) {
     modelTurns = payload.contents.filter(msg => msg.role === 'model').length;
     const match = systemInstruction.match(/Total Target Question Count:\s*(\d+)/);
     totalCount = match ? parseInt(match[1], 10) : 5;
-
-    prompt = payload.contents.map(msg => {
-      const roleName = msg.role === 'model' ? 'Interviewer' : 'Candidate';
-      const textContent = msg.parts ? msg.parts.map(p => p.text).join('\n') : '';
-      return `${roleName}: ${textContent}`;
-    }).join('\n\n');
-
-    suffix = `\n\nInterviewer: Question ${modelTurns + 1} of ${totalCount}:`;
-    prompt += suffix;
-  } else {
-    prompt = typeof payload.contents === 'string' ? payload.contents : JSON.stringify(payload.contents);
   }
 
   const localUrl = "http://127.0.0.1:5000/api/generate";
@@ -39,8 +26,11 @@ async function callLocalFallback(payload) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      prompt: prompt,
-      system_instruction: systemInstruction
+      api_key: apiKey,
+      system_instruction: systemInstruction,
+      chat_history: Array.isArray(payload.contents) ? payload.contents : [],
+      model_turns: modelTurns,
+      total_count: totalCount
     })
   });
 
@@ -50,18 +40,7 @@ async function callLocalFallback(payload) {
   }
 
   const data = await localRes.json();
-  let text = data.text;
-
-  // Make sure the output starts with the expected Question prefix if we appended it
-  if (suffix && text) {
-    const trimmed = text.trim();
-    const expectedPrefix = `Question ${modelTurns + 1} of ${totalCount}:`;
-    if (!/Question \d+ of \d+/i.test(trimmed)) {
-      text = `${expectedPrefix} ${trimmed}`;
-    }
-  }
-
-  return text;
+  return data.text;
 }
 
 async function callGemini(apiKey, payload) {
@@ -78,7 +57,7 @@ async function callGemini(apiKey, payload) {
     });
   } catch (netErr) {
     console.warn("Network error contacting Gemini, falling back to local LLM:", netErr);
-    return callLocalFallback(payload);
+    return callLocalFallback(payload, apiKey);
   }
 
   if (!response.ok) {
@@ -91,7 +70,7 @@ async function callGemini(apiKey, payload) {
                          
     if (isQuotaError) {
       console.warn("Gemini Rate Limit / Quota Exceeded. Falling back to local backend LLM...");
-      return callLocalFallback(payload);
+      return callLocalFallback(payload, apiKey);
     }
     
     throw new Error(message);
@@ -150,7 +129,7 @@ SPECIAL RULES FOR CODING (DSA) TOPICS:
   return `You are an elite Senior Principal Software Engineer and Technical Recruiter conducting a live mock interview.
 
 INTERVIEW DETAILS:
-- Candidate's Resume Details: ${resumeText ? resumeText.substring(0, 3000) : "No resume uploaded."}
+- Candidate's Resume Details: ${resumeText}
 - Focus Topics Selected: ${topics.join(", ")}
 - Calibrated Difficulty Level: ${difficulty}
 - Total Target Question Count: ${questionCount}
@@ -164,11 +143,85 @@ INSTRUCTIONS FOR THE INTERVIEW LOOP:
 2. For all conversational/non-coding questions (and coding follow-ups), keep your replies concise, conversational, and direct (1 to 3 sentences maximum), because your responses will be read aloud by a Text-To-Speech synthesizer. Do NOT write markdown headings, bulleted lists, or code blocks in these questions.
 3. Incorporate technical problems, behavioral scenarios (STAR method), and design discussions.
 4. Topics Distribution: Evenly rotate and cover the selected topics (${topics.join(", ")}) across the session. Do not keep asking about the same topic.
-5. Resume Customization: If a resume is uploaded above, tailor at least 30-40% of the questions explicitly to their real-world experience, projects, or technologies mentioned (e.g. React, Node, Python, AWS, Postgres, etc.). Ask them to evaluate their past design decisions or suggest improvements.
-6. Behavioral Focus: If "Behavioral (STAR)" is in the topic list, formulate situational questions (e.g., "Tell me about a time you resolved a major bug under pressure...") to test their Situation, Task, Action, and Result coverage.
+5. Resume-Based Questions (CRITICAL):
+   - You MUST ground all conversational questions directly in the candidate's actual resume (e.g., their specific projects, roles, companies, tools, and experiences).
+   - Rather than asking generic questions about the selected focus topics, look for relevant experiences or technologies listed on their resume and formulate questions based on those specific items, aligning them with the selected focus topics.
+   - For example, if the topic is 'Databases' and their resume mentions 'PostgreSQL at Company X', ask a database design, scaling, or optimization question specific to their PostgreSQL usage at Company X.
+   - If a topic is selected that is not explicitly present on the resume, ask how they would apply that topic to one of the projects or roles listed on their resume.
+   - Every single question (except the first coding DSA challenge, if coding is selected) must explicitly reference a specific project, company, role, or technology mentioned in their resume.
+6. Behavioral Focus: If "Behavioral (STAR)" is in the topic list, formulate situational questions (e.g., "Tell me about a time you resolved a major bug under pressure...") to test their Situation, Task, Action, and Result coverage, based on their resume experiences.
 7. Before asking the next question, briefly comment on their previous answer in 1 sentence. (For example, "That is a correct analysis of read-heavy caching, but note the eviction overhead. Question 2 of 5: ...")
 8. ALWAYS prefix your response with "Question X of Y: " to indicate the current state (e.g., "Question 1 of 5: ...").`;
 }
+
+/**
+ * Validates if the text is a resume/CV.
+ * 
+ * @param {string} apiKey - Gemini API Key
+ * @param {string} text - The resume text to validate
+ * @returns {Promise<{ isResume: boolean, reason: string }>}
+ */
+export async function validateResume(apiKey, text) {
+  const checkHeuristics = (txt) => {
+    const lowerText = txt.toLowerCase();
+    const keywords = ['experience', 'work', 'education', 'skills', 'projects', 'history', 'employment', 'cv', 'resume', 'contact', 'email', 'phone'];
+    const matchCount = keywords.filter(keyword => lowerText.includes(keyword)).length;
+    return matchCount >= 2;
+  };
+
+  if (apiKey === 'LOCAL_FALLBACK') {
+    if (checkHeuristics(text)) {
+      return { isResume: true, reason: "Local validation passed (keywords found)." };
+    } else {
+      return { isResume: false, reason: "Local validation failed (could not identify typical resume sections like work experience, education, or skills)." };
+    }
+  }
+
+  const prompt = `Analyze the following text and determine if it represents a professional resume or curriculum vitae (CV). A resume typically contains sections like work experience, education, skills, contact information, or projects.
+
+Text to analyze:
+"""
+${text.substring(0, 4000)}
+"""
+
+Respond ONLY with a JSON object matching this schema:
+{
+  "isResume": true, // or false
+  "reason": "A short sentence explaining why it is or is not a resume (e.g. 'Found sections for Work Experience, Education, and Skills.' or 'The text appears to be a recipe rather than a resume.')"
+}`;
+
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.1,
+      maxOutputTokens: 150,
+    }
+  };
+
+  try {
+    const rawJson = await callGemini(apiKey, payload);
+    try {
+      return JSON.parse(rawJson);
+    } catch (err) {
+      const cleaned = rawJson.replace(/```json/gi, "").replace(/```/g, "").trim();
+      return JSON.parse(cleaned);
+    }
+  } catch (err) {
+    console.warn("Gemini validation failed, falling back to heuristics:", err);
+    if (checkHeuristics(text)) {
+      return { isResume: true, reason: "Validation succeeded via client-side heuristics fallback." };
+    } else {
+      return { isResume: false, reason: "Document does not appear to be a valid resume (heuristics fallback failed)." };
+    }
+  }
+}
+
 
 /**
  * Gets the next interview question from Gemini.

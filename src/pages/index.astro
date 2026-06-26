@@ -227,7 +227,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     <div id="interview-view" class="hidden max-w-6xl w-full px-6 py-8 flex flex-col gap-6 items-stretch z-10 animate-[fadeIn_0.5s_ease-out] mx-auto">
       
       <!-- Standard Interview Workspace (Side-by-Side Split Grid) -->
-      <div id="standard-workspace" class="grid grid-cols-1 md:grid-cols-12 gap-16 items-stretch w-full min-h-[580px]">
+      <div id="standard-workspace" class="grid grid-cols-1 md:grid-cols-12 gap-16 items-stretch w-full min-h-[640px]">
         
         <!-- Left Column: Floating AI Agent UI (takes 5 cols) -->
         <div class="md:col-span-5 flex flex-col items-center justify-center p-6 relative">
@@ -258,7 +258,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         </div>
 
         <!-- Right Column: Dialogue Chatbox (takes 7 cols) -->
-        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-6 relative h-[580px] max-h-[580px] min-h-[580px]">
+        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-6 relative h-[640px] max-h-[640px] min-h-[640px]">
           <div class="absolute -right-12 -top-12 w-24 h-24 radial-glow-blue opacity-25 rounded-full filter blur-xl pointer-events-none z-0"></div>
           
           <!-- Chat Panel Header with HUD stats -->
@@ -623,7 +623,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
 
 <script>
   import { extractTextFromPDF } from '../utils/pdf.js';
-  import { getNextQuestion, getHint, getFinalEvaluation, transcribeAudio } from '../utils/gemini.js';
+  import { getNextQuestion, getHint, getFinalEvaluation, transcribeAudio, validateResume } from '../utils/gemini.js';
 
   // --- STATE REGISTRATION ---
   let state = 'setup'; // setup, interview, grading, analytics
@@ -905,8 +905,19 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
 
     try {
       resumeText = await extractTextFromPDF(file);
-      pdfStatusText.textContent = `Successfully parsed: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-      pdfStatusText.className = "text-xs text-accent-green font-medium";
+      pdfStatusText.textContent = "Validating resume content...";
+      pdfStatusText.className = "text-xs text-accent-blue animate-pulse";
+      
+      const validation = await validateResume(apiKey || "LOCAL_FALLBACK", resumeText);
+      if (!validation.isResume) {
+        alert("Please submit a valid resume file. The uploaded document does not contain typical resume sections (such as work experience, education, or skills).");
+        pdfStatusText.textContent = "Invalid resume document uploaded.";
+        pdfStatusText.className = "text-xs text-accent-red";
+        resumeText = "";
+      } else {
+        pdfStatusText.textContent = `Successfully parsed & validated: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        pdfStatusText.className = "text-xs text-accent-green font-medium";
+      }
     } catch (error) {
       console.error(error);
       pdfStatusText.textContent = error.message;
@@ -1793,8 +1804,13 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     const voices = window.speechSynthesis.getVoices();
     let selectedVoice = null;
     
-    if (selectVoice.value && !selectVoice.value.startsWith('eleven_') && !selectVoice.value.startsWith('edge_')) {
-      selectedVoice = voices.find(v => v.name === selectVoice.value);
+    // Prioritize finding a browser voice named "Andrew"
+    selectedVoice = voices.find(v => v.name.toLowerCase().includes('andrew'));
+
+    if (!selectedVoice) {
+      if (selectVoice.value && !selectVoice.value.startsWith('eleven_') && !selectVoice.value.startsWith('edge_')) {
+        selectedVoice = voices.find(v => v.name === selectVoice.value);
+      }
     }
 
     const femaleVoiceKeywords = [
@@ -2794,6 +2810,35 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       resumeText = inputResumeText.value.trim();
     }
 
+    if (!resumeText || !resumeText.trim()) {
+      alert("Please upload a Resume PDF or paste your resume text first.");
+      return;
+    }
+
+    // Validate the resume content
+    const originalBtnText = btnStart.textContent;
+    btnStart.disabled = true;
+    btnStart.textContent = "VALIDATING RESUME...";
+
+    try {
+      const validation = await validateResume(apiKey, resumeText);
+      if (!validation.isResume) {
+        alert("Please submit a valid resume file. The uploaded document does not contain typical resume sections (such as work experience, education, or skills).");
+        btnStart.disabled = false;
+        btnStart.textContent = originalBtnText;
+        return;
+      }
+    } catch (err) {
+      console.error("Resume validation error:", err);
+      alert(`Could not validate resume document: ${err.message}. Please check your connection and API key.`);
+      btnStart.disabled = false;
+      btnStart.textContent = originalBtnText;
+      return;
+    }
+
+    btnStart.disabled = false;
+    btnStart.textContent = originalBtnText;
+
     // Initialize interview variables
     currentQuestionIndex = 0;
     chatHistory = [];
@@ -3037,9 +3082,54 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       }
     }
 
-    // Scroll to bottom
-    container.scrollTop = container.scrollHeight;
+    // Scroll to bottom smoothly after DOM paint
+    requestAnimationFrame(() => {
+      const lastChild = container.lastElementChild;
+      if (lastChild) {
+        lastChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
   }
+
+  // --- AUTO-SCROLL OBSERVER ---
+  // Watches chat container for any DOM mutations (e.g. word-by-word TTS rendering)
+  // and automatically scrolls to the bottom.
+  (function setupChatAutoScroll() {
+    const chatContainer = document.getElementById('chat-history-container');
+    if (!chatContainer) return;
+
+    let isUserScrollingUp = false;
+    let scrollLockTimer = null;
+
+    // If the user manually scrolls up, pause auto-scroll for 4 seconds
+    chatContainer.addEventListener('scroll', () => {
+      const distFromBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+      if (distFromBottom > 60) {
+        isUserScrollingUp = true;
+        clearTimeout(scrollLockTimer);
+        // Resume auto-scroll after 4 seconds of no manual scroll
+        scrollLockTimer = setTimeout(() => {
+          isUserScrollingUp = false;
+        }, 4000);
+      } else {
+        isUserScrollingUp = false;
+      }
+    }, { passive: true });
+
+    const observer = new MutationObserver(() => {
+      if (isUserScrollingUp) return;
+      requestAnimationFrame(() => {
+        const lastChild = chatContainer.lastElementChild;
+        if (lastChild) {
+          lastChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+      });
+    });
+
+    observer.observe(chatContainer, { childList: true, subtree: true, characterData: true });
+  })();
 
   // --- INTERVIEW SIMULATOR MECHANICS ---
   function displayQuestion(questionRaw) {
@@ -3170,7 +3260,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
         thinkingBubble.className = "flex justify-start w-full mb-4 animate-pulse";
         thinkingBubble.innerHTML = `<div class="max-w-[85%] rounded-2xl rounded-tl-none px-4 py-2.5 bg-white/5 border border-white/10 text-mute text-xs md:text-sm font-light leading-relaxed select-none italic">Analyzing response & formulating next question...</div>`;
         container.appendChild(thinkingBubble);
-        container.scrollTop = container.scrollHeight;
+        requestAnimationFrame(() => thinkingBubble.scrollIntoView({ behavior: 'smooth', block: 'end' }));
       }
 
       try {

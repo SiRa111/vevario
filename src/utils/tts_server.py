@@ -1,9 +1,8 @@
 import sys
 import asyncio
 import base64
-import subprocess
-import re
 import json
+import requests
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import edge_tts
@@ -11,6 +10,57 @@ import edge_tts
 
 app = Flask(__name__)
 CORS(app)
+
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+# Models tried in order — first available quota wins
+GEMINI_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
+]
+
+
+def call_gemini(api_key, contents, system_instruction=None, response_mime_type=None, temperature=0.7, max_tokens=1000):
+    """Call Gemini API. Returns the text response or raises on error."""
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        }
+    }
+    if system_instruction:
+        payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+    if response_mime_type:
+        payload["generationConfig"]["responseMimeType"] = response_mime_type
+
+    last_error = None
+    for model in GEMINI_MODELS:
+        url = f"{GEMINI_API_BASE}/{model}:generateContent?key={api_key}"
+        try:
+            resp = requests.post(url, json=payload, timeout=30)
+            if resp.status_code == 429:
+                print(f"Quota hit on {model}, trying next model...", flush=True)
+                last_error = f"429 quota on {model}"
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            if not text:
+                last_error = f"Empty response from {model}"
+                continue
+            print(f"✓ Gemini response via {model}", flush=True)
+            return text
+        except requests.exceptions.RequestException as e:
+            print(f"Request error ({model}): {e}", flush=True)
+            last_error = str(e)
+            continue
+
+    raise Exception(f"All Gemini models failed. Last error: {last_error}")
+
 
 @app.route("/api/stream_tts", methods=["GET", "POST"])
 def stream_tts():
@@ -70,8 +120,8 @@ def tts_edge():
             elif chunk["type"] == "WordBoundary":
                 word_boundaries.append({
                     "text": chunk["text"],
-                    "start": chunk["offset"] / 10000.0,      # Convert ticks (100ns) to milliseconds
-                    "duration": chunk["duration"] / 10000.0  # Convert ticks (100ns) to milliseconds
+                    "start": chunk["offset"] / 10000.0,
+                    "duration": chunk["duration"] / 10000.0
                 })
         return audio_data, word_boundaries
 
@@ -96,106 +146,148 @@ def generate_text():
         return Response(status=200)
 
     data = request.json or {}
-    prompt = data.get("prompt", "")
+    api_key = data.get("api_key", "")
     system_instruction = data.get("system_instruction", "")
+    chat_history = data.get("chat_history", [])   # Array of {role, parts:[{text}]}
+    model_turns = data.get("model_turns", 0)
+    total_count = data.get("total_count", 5)
 
-    # Identify if it is requesting the final evaluation JSON
-    if "JSON SCHEMA" in prompt or "JUDGING ENGINE" in prompt:
-        evaluation_json = {
-            "overallScore": 87,
-            "techScore": 90,
-            "commScore": 84,
-            "summary": "The candidate performed very well on the Coding (DSA) and system evaluation. They implemented an optimal solution using a hash map, and explained their complexity analysis correctly.",
-            "strengths": [
-                "Implemented O(N) time complexity solution for Two Sum.",
-                "Dry ran code correctly and handled negative integer cases."
-            ],
-            "weaknesses": [
-                "Could optimize space complexity if auxiliary arrays were avoided.",
-                "A few minor stutter filler words detected during speech delivery."
-            ],
-            "questions": [
-                {
-                    "question": "Coding Challenge: Two Sum",
-                    "candidateAnswer": "Code submitted and explained verbally.",
-                    "idealAnswer": "Two Sum is optimally solved using a single pass with a Hash Map to locate elements matching target complement in O(N) time and O(N) auxiliary space.",
-                    "techEvaluation": "Excellent clean implementation matching optimal time bounds.",
-                    "commEvaluation": "Explanation of space/time trade-offs was clear and structured.",
-                    "starCheck": {
-                        "applicable": False,
-                        "situation": False,
-                        "task": False,
-                        "action": False,
-                        "result": False
-                    }
-                }
-            ],
-            "studyTopics": [
-                {
-                    "topic": "Array Algorithms and Hashing",
-                    "description": "Strengthen your confidence with double pointer sliding windows and hash-map storage optimizations.",
-                    "link": "https://www.google.com/search?q=two+sum+leetcode+optimal+hashmap+approach"
-                }
-            ]
-        }
-        return jsonify({"text": json.dumps(evaluation_json)})
+    # ---------------------------------------------------------------
+    # If no API key, we cannot do anything intelligent. Return error.
+    # ---------------------------------------------------------------
+    if not api_key or api_key in ("", "LOCAL_FALLBACK"):
+        return jsonify({"text": "Question 1 of 5: Walk me through your most recent technical project — what did you build, what was your role, and what were the key technical challenges you faced?"}), 200
 
-    # Handle coding challenge follow-ups dynamically
-    if "Candidate has submitted the following code in" in prompt or "submitted code" in prompt.lower():
-        return jsonify({"text": "I see you have submitted your solution. Can you explain your approach to solving this question? Walk me through how your code works and analyze its time and space complexity."})
-    
-    if "explain their design" in prompt.lower() or "explain their time and space complexity" in prompt.lower():
-        return jsonify({"text": "Thank you for explaining your approach. How does your solution handle boundary conditions? For example, empty input arrays, target values not present, or overflow limits?"})
+    # ---------------------------------------------------------------
+    # DETECT: Is this a final evaluation request?
+    # ---------------------------------------------------------------
+    last_user_text = ""
+    if chat_history:
+        for turn in reversed(chat_history):
+            if turn.get("role") == "user":
+                last_user_text = (turn.get("parts") or [{}])[0].get("text", "")
+                break
 
-    # Otherwise, it's a next question request
-    match = re.search(r"Question (\d+) of (\d+)", prompt)
-    q_num = int(match.group(1)) if match else 2
-    total_q = int(match.group(2)) if match else 5
+    is_eval_request = (
+        "JSON SCHEMA" in system_instruction or
+        "JUDGING ENGINE" in system_instruction or
+        "JSON SCHEMA" in last_user_text or
+        "JUDGING ENGINE" in last_user_text
+    )
 
-    # Check topics in system instruction or prompt
-    topics = []
-    if "Focus Topics Selected:" in system_instruction:
-        parts = system_instruction.split("Focus Topics Selected:")
-        if len(parts) > 1:
-            topics = [t.strip() for t in parts[1].split("\n")[0].split(",")]
-    
-    if not topics and "Coding (DSA)" in prompt:
-        topics = ["Coding (DSA)"]
-    elif not topics:
-        topics = ["System Design"]
+    # ---------------------------------------------------------------
+    # FINAL EVALUATION: Ask Gemini to produce evaluation JSON
+    # ---------------------------------------------------------------
+    if is_eval_request:
+        eval_system = (
+            "You are an elite Senior Principal Software Engineer conducting a comprehensive mock interview evaluation. "
+            "You will be given the full conversation history of a technical mock interview. "
+            "Analyze EVERY candidate answer honestly and critically:\n"
+            "- If the candidate said they don't know, admitted ignorance, gave a nonsensical answer, or gave a very short non-technical answer: score that question POORLY (0-40 range for tech). Mark it as a weakness.\n"
+            "- If the candidate gave a partial answer: score it in the 41-70 range.\n"
+            "- Only score 71-100 for genuinely correct, detailed technical answers.\n"
+            "Never give a high score to an 'I don't know' answer. Be honest and strict."
+        )
 
-    # Select simulated question based on topic and question number
-    topic = topics[0]
-    questions_pool = {
-        "System Design": [
-            "How would you design a URL shortening service? Specifically, what database and hashing algorithm would you choose?",
-            "How would you handle high concurrent traffic on the redirect path of your URL shortener? Where would you cache codes?",
-            "Let's discuss database scaling. If your relational database runs out of write capacity, how would you scale it?",
-            "Tell me about a time you had to deal with a severe production outage or database lock. What did you do to fix it?",
-            "What strategy would you use to cache blog posts to improve system performance?"
-        ],
-        "Coding (DSA)": [
-            "# Two Sum\nGiven an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\n\n### Example 1:\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].\n\n### Constraints:\n- `2 <= nums.length <= 10^4`\n- `-10^9 <= nums[i] <= 10^9`\n- `-10^9 <= target <= 10^9`"
-        ],
-        "Coding": [
-            "Write a function to find the first non-repeating character in a string. What is the time complexity of your solution?",
-            "How would you optimize search performance on a table containing 10 million rows?",
-            "Explain the difference between SQL database normalization and denormalization. When would you choose to denormalize?",
-            "Describe a complex coding bug you encountered recently and the debugging process you used to resolve it.",
-            "How do you implement unit testing and CI/CD pipelines in your daily coding workflow?"
-        ]
-    }
-    
-    pool = questions_pool.get(topic, questions_pool["System Design"])
-    q_index = (q_num - 1) % len(pool)
-    question_text = pool[q_index]
+        eval_prompt = f"""Analyze this complete mock interview conversation and generate an evaluation scorecard.
 
-    if q_num > 1:
-        simulated_text = f"That is a correct analysis of the trade-offs. Question {q_num} of {total_q}: {question_text}"
-    else:
-        simulated_text = f"Question {q_num} of {total_q}: {question_text}"
+INTERVIEW DETAILS:
+- Topics: Extracted from the system instruction context
+- Difficulty: Based on the questions asked
 
-    return jsonify({"text": simulated_text})
+JUDGING ENGINE SCORING RUBRICS:
+1. TECHNICAL ACCURACY (70% weight):
+   - 0-40: Wrong, blank, or 'I don't know' answers
+   - 41-70: Partial or surface-level understanding
+   - 71-85: Correct with solid understanding
+   - 86-100: Masterful with trade-offs, alternatives, and depth
+
+2. COMMUNICATION (30% weight):
+   - 0-50: Unclear, very short, or admission of not knowing
+   - 51-79: Understandable but lacks structure
+   - 80-100: Articulate, structured, clear
+
+CRITICAL INSTRUCTIONS:
+- If the candidate said 'I don't know', 'no idea', 'I have no clue', 'I never worked at that level', or gave any non-answer: mark techEvaluation as poor, add to weaknesses, and score that question 0-35 for tech.
+- Be a STRICT, HONEST evaluator. Do not be encouraging about poor answers.
+
+Return ONLY raw JSON (no markdown, no code blocks) matching this exact schema:
+{{
+  "overallScore": 0-100,
+  "techScore": 0-100,
+  "commScore": 0-100,
+  "summary": "3-4 sentence honest summary of performance",
+  "strengths": ["strength 1", "strength 2"],
+  "weaknesses": ["weakness 1", "weakness 2"],
+  "questions": [
+    {{
+      "question": "The question text",
+      "candidateAnswer": "What candidate said",
+      "idealAnswer": "What a perfect answer would cover",
+      "techEvaluation": "Honest 1-sentence technical critique",
+      "commEvaluation": "Honest 1-sentence communication critique",
+      "starCheck": {{
+        "applicable": false,
+        "situation": false,
+        "task": false,
+        "action": false,
+        "result": false
+      }}
+    }}
+  ],
+  "studyTopics": [
+    {{
+      "topic": "Topic name",
+      "description": "Why they need to study this",
+      "link": "https://www.google.com/search?q=topic+interview+prep"
+    }}
+  ]
+}}"""
+
+        try:
+            raw = call_gemini(
+                api_key,
+                chat_history + [{"role": "user", "parts": [{"text": eval_prompt}]}],
+                system_instruction=eval_system,
+                response_mime_type="application/json",
+                temperature=0.1,
+                max_tokens=3000
+            )
+            # Validate it's real JSON
+            json.loads(raw)
+            return jsonify({"text": raw})
+        except Exception as e:
+            print(f"Eval Gemini error: {e}", flush=True)
+            return jsonify({"error": str(e)}), 500
+
+    # ---------------------------------------------------------------
+    # NORMAL FLOW: Generate next question using Gemini
+    # ---------------------------------------------------------------
+    # Append the next-question prompt to the existing chat history
+    next_q_num = model_turns + 1
+    next_q_prompt = (
+        f"Question {next_q_num} of {total_count}: "
+        f"Based on their previous answer, briefly comment on it in 1 honest sentence "
+        f"(if it was poor or 'I don't know', say so critically and note it as a weakness), "
+        f"then ask question {next_q_num} of {total_count} on the next topic. "
+        f"Prefix your response with 'Question {next_q_num} of {total_count}: '"
+    )
+
+    contents = chat_history + [{"role": "user", "parts": [{"text": next_q_prompt}]}]
+
+    try:
+        result = call_gemini(
+            api_key,
+            contents,
+            system_instruction=system_instruction,
+            temperature=0.7,
+            max_tokens=600
+        )
+        return jsonify({"text": result})
+    except Exception as e:
+        print(f"Generate Gemini error: {e}", flush=True)
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(line_buffering=True)
