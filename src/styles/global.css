@@ -123,11 +123,6 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-body.custom-cursor-enabled,
-body.custom-cursor-enabled * {
-  cursor: none !important;
-}
-
 /* Custom font styles */
 .font-display {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -143,39 +138,6 @@ body.custom-cursor-enabled * {
 }
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
-}
-
-/* Custom Metallic Cursor styling */
-#metal-cursor {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 22px;
-  height: 22px;
-  pointer-events: none;
-  z-index: 99999;
-  mix-blend-mode: normal;
-  transform: translate(-50%, -50%);
-  display: none; /* Managed by JS */
-}
-
-#metal-cursor .cursor-core {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--metallic-cursor-bg);
-  box-shadow: var(--metallic-cursor-shadow);
-  transition: background-image 0.2s ease, opacity 0.3s ease;
-  will-change: transform;
-}
-
-/* Hovering active state changes reflective color slightly */
-body.custom-cursor-hovering #metal-cursor .cursor-core {
-  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #93c5fd 15%, #2563eb 55%, #1d4ed8 80%, #0f172a 100%);
-  box-shadow: 
-    0 10px 22px rgba(37, 99, 235, 0.45), 
-    inset -2px -2px 5px rgba(0, 0, 0, 0.7), 
-    inset 2px 2px 4px rgba(255, 255, 255, 0.85);
 }
 
 /* Glassmorphism Panel styles */

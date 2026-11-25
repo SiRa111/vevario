@@ -67,10 +67,10 @@ def stream_tts():
     if request.method == "POST":
         data = request.json or {}
         text = data.get("text", "")
-        voice = data.get("voice", "en-US-AndrewMultilingualNeural")
+        voice = data.get("voice", "en-GB-SoniaNeural")
     else:
         text = request.args.get("text", "")
-        voice = request.args.get("voice", "en-US-AndrewMultilingualNeural")
+        voice = request.args.get("voice", "en-GB-SoniaNeural")
 
     if not text.strip():
         return jsonify({"error": "No text provided"}), 400
@@ -101,10 +101,10 @@ def tts_edge():
     if request.method == "POST":
         data = request.json or {}
         text = data.get("text", "")
-        voice = data.get("voice", "en-US-AndrewMultilingualNeural")
+        voice = data.get("voice", "en-GB-SoniaNeural")
     else:
         text = request.args.get("text", "")
-        voice = request.args.get("voice", "en-US-AndrewMultilingualNeural")
+        voice = request.args.get("voice", "en-GB-SoniaNeural")
 
     if not text.strip():
         return jsonify({"error": "No text provided"}), 400

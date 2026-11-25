@@ -3,8 +3,8 @@ import Layout from "../layouts/Layout.astro";
 import InterviewerOrb from "../components/InterviewerOrb.astro";
 import DashboardAnalytics from "../components/DashboardAnalytics.astro";
 
-const publicGeminiApiKey = import.meta.env.PUBLIC_GEMINI_API_KEY || "";
-const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
+const publicGeminiApiKey = import.meta.env.PUBLIC_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || "";
+const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.meta.env.ELEVENLABS_API_KEY || "";
 ---
 
 <Layout title="Vevario — Real-time AI Mock Interviewer">
@@ -46,7 +46,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     </div>
   </header>
 
-  <main class="flex-grow flex items-center justify-center relative bg-transparent overflow-hidden min-h-[calc(100vh-4rem)]">
+  <main class="flex-grow flex items-start md:items-center justify-center relative bg-transparent overflow-y-auto overflow-x-hidden min-h-[calc(100vh-4rem)] py-4 sm:py-6 md:py-8">
 
     <!-- ===================================== -->
     <!-- 0. LANDING / HERO VIEW                -->
@@ -178,8 +178,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
             </div>
           </div>
 
-          <!-- Select Box: Voice & Difficulty & Count Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Select Box: Difficulty, Count & Voice Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <!-- Difficulty -->
             <div>
               <label class="block text-[10px] font-mono text-mute uppercase mb-1.5">
@@ -199,17 +199,33 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
                 Question Count
               </label>
               <select id="select-count" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
+                <option value="5" selected class="bg-[#0f172a]">5 Questions (Quick)</option>
                 <option value="10" class="bg-[#0f172a]">10 Questions</option>
                 <option value="15" class="bg-[#0f172a]">15 Questions</option>
                 <option value="25" class="bg-[#0f172a]">25 Questions</option>
-                <option value="5" selected class="bg-[#0f172a]">5 Questions (Quick)</option>
               </select>
             </div>
 
-            <!-- Hidden select-voice element to maintain JS compatibility -->
-            <select id="select-voice" class="hidden">
-              <option value="edge_andrew" selected>edge_andrew</option>
-            </select>
+            <!-- Interviewer Voice -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-[10px] font-mono text-mute uppercase">
+                  Interviewer Voice
+                </label>
+                <button type="button" id="btn-preview-voice" title="Test Voice Output" class="text-[9px] font-mono text-link hover:underline cursor-pointer bg-transparent border-0 flex items-center gap-1">
+                  <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <span>Test Voice</span>
+                </button>
+              </div>
+              <select id="select-voice" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
+                <option value="andrew" class="bg-[#0f172a]" selected>Andrew (US Male - Confident)</option>
+                <option value="brian" class="bg-[#0f172a]">Brian (US Male - Technical)</option>
+                <option value="ryan" class="bg-[#0f172a]">Ryan (UK Male - Formal)</option>
+                <option value="sonia" class="bg-[#0f172a]">Sonia (UK Female - Crisp)</option>
+                <option value="ava" class="bg-[#0f172a]">Ava (US Female - Clear)</option>
+                <option value="emma" class="bg-[#0f172a]">Emma (US Female - Calm)</option>
+              </select>
+            </div>
           </div>
 
           <!-- Premium CTA button for "INITIALIZE SESSION" -->
@@ -223,14 +239,13 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     <!-- ===================================== -->
     <!-- 2. INTERVIEW SIMULATOR HUD VIEW       -->
     <!-- ===================================== -->
-    <!-- (Frosted glass container with 3D Tilt support) -->
-    <div id="interview-view" class="hidden max-w-6xl w-full px-6 py-8 flex flex-col gap-6 items-stretch z-10 animate-[fadeIn_0.5s_ease-out] mx-auto">
+    <div id="interview-view" class="hidden max-w-6xl w-full px-4 sm:px-6 py-2 sm:py-4 flex flex-col gap-4 md:gap-6 items-stretch z-10 animate-[fadeIn_0.5s_ease-out] mx-auto">
       
       <!-- Standard Interview Workspace (Side-by-Side Split Grid) -->
-      <div id="standard-workspace" class="grid grid-cols-1 md:grid-cols-12 gap-16 items-stretch w-full min-h-[640px]">
+      <div id="standard-workspace" class="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 lg:gap-10 items-stretch w-full">
         
         <!-- Left Column: Floating AI Agent UI (takes 5 cols) -->
-        <div class="md:col-span-5 flex flex-col items-center justify-center p-6 relative">
+        <div class="md:col-span-5 flex flex-col items-center justify-center p-3 sm:p-4 md:p-6 relative">
           <!-- Orb Visualizer Component -->
           <InterviewerOrb />
 
@@ -252,17 +267,17 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           </div>
 
           <!-- Soundwave visualizer placed at the bottom -->
-          <div id="user-glitch-soundbar" class="flex gap-1 justify-center items-center h-20 w-full max-w-xs mt-6 opacity-0 transition-opacity duration-300 z-10">
+          <div id="user-glitch-soundbar" class="flex gap-1 justify-center items-center h-12 sm:h-16 w-full max-w-xs mt-4 sm:mt-6 opacity-0 transition-opacity duration-300 z-10">
             <!-- Filled dynamically by JavaScript on mount -->
           </div>
         </div>
 
         <!-- Right Column: Dialogue Chatbox (takes 7 cols) -->
-        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-6 relative h-[640px] max-h-[640px] min-h-[640px]">
+        <div class="md:col-span-7 flex flex-col justify-between glass-panel p-4 sm:p-6 relative min-h-[520px] md:min-h-[580px] h-auto max-w-full overflow-visible">
           <div class="absolute -right-12 -top-12 w-24 h-24 radial-glow-blue opacity-25 rounded-full filter blur-xl pointer-events-none z-0"></div>
           
           <!-- Chat Panel Header with HUD stats -->
-          <div class="w-full flex items-center justify-between font-mono text-[10px] text-mute mb-4 border-b border-white/10 pb-3 relative z-10">
+          <div class="w-full flex items-center justify-between font-mono text-[10px] text-mute mb-3 sm:mb-4 border-b border-white/10 pb-3 relative z-10">
             <div class="flex items-center gap-2">
               <span class="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse"></span>
               <span>INTERVIEW IN PROGRESS</span>
@@ -275,7 +290,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           </div>
 
           <!-- Real-time metrics HUD (Glass status pills) -->
-          <div class="flex gap-2 mb-4 relative z-10">
+          <div class="flex gap-2 mb-3 sm:mb-4 relative z-10">
             <!-- Um Counter -->
             <div class="flex items-center gap-1.5 px-3 py-1 bg-white/[0.03] border border-white/10 rounded-full text-[10px] font-mono shadow-sm">
               <span class="text-accent-red font-semibold">UM/UH:</span>
@@ -289,7 +304,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           </div>
 
           <!-- Chat History Scrolling Container -->
-          <div id="chat-history-container" class="overflow-y-auto pr-1 mb-4 space-y-4 h-[310px] min-h-[310px] max-h-[310px] relative z-10 scroll-smooth">
+          <div id="chat-history-container" class="overflow-y-auto pr-1 mb-3 sm:mb-4 space-y-3 sm:space-y-4 flex-1 min-h-[140px] max-h-[260px] sm:max-h-[300px] md:max-h-[320px] relative z-10 scroll-smooth">
             <!-- Dynamic chat bubbles loaded here -->
           </div>
 
@@ -297,27 +312,28 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
           <div id="question-text" class="hidden"></div>
 
           <!-- Input Area (Main Box) -->
-          <div class="relative z-10 w-full">
+          <div class="relative z-10 w-full shrink-0">
             <!-- Voice Recognition Subtitles Mode (Default) -->
             <div id="voice-input-container" class="w-full">
               <!-- Live scrolling subtitle transcript (Recessed Glass container) -->
-              <div id="live-subtitle-box" class="w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none">
+              <div id="live-subtitle-box" onpaste="return false;" ondrop="return false;" class="w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-3 sm:p-4 h-20 sm:h-24 text-xs sm:text-sm font-light leading-relaxed text-mute/50 overflow-y-auto text-center italic flex items-center justify-center select-none">
                 Voice transcription will appear here in real time...
               </div>
             </div>
    
             <!-- Text Input Mode -->
             <div id="text-input-container" class="hidden w-full">
-              <textarea id="textarea-answer" placeholder="Draft your answer conceptually..." 
-                class="w-full glass-inset bg-[#0c0f1d]/70 border border-white/10 rounded-xl p-4 text-sm font-light text-ink placeholder-mute/50 focus:outline-none focus:border-accent-blue/30 transition-all resize-none h-24"></textarea>
+              <textarea id="textarea-answer" placeholder="Draft your answer conceptually (pasting is disabled)..." 
+                onpaste="return false;" ondrop="return false;" autocomplete="off"
+                class="w-full glass-inset bg-[#0c0f1d]/70 border border-white/10 rounded-xl p-3 sm:p-4 text-xs sm:text-sm font-light text-ink placeholder-mute/50 focus:outline-none focus:border-accent-blue/30 transition-all resize-none h-20 sm:h-24"></textarea>
             </div>
           </div>
 
-          <!-- Footer Control Area -->
-          <div class="border-t border-white/10 pt-4 mt-4 flex items-center justify-between gap-4 relative z-10">
-            <div class="flex items-center gap-2.5">
+          <!-- Footer Control Area (Responsive wrapping so buttons never get cut off) -->
+          <div class="border-t border-white/10 pt-3 sm:pt-4 mt-3 sm:mt-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 relative z-10 shrink-0">
+            <div class="flex items-center gap-2 flex-wrap">
               <!-- Glass Switch to Type button -->
-              <button id="btn-toggle-input-mode" class="px-3.5 py-1.5 premium-btn font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
+              <button id="btn-toggle-input-mode" class="px-3 sm:px-3.5 py-1.5 premium-btn font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <rect x="2" y="4" width="20" height="16" rx="2" />
                   <path d="M6 8h10M6 12h8M6 16h4" />
@@ -326,7 +342,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
               </button>
   
               <!-- Glass Get Hint button -->
-              <button id="btn-hint" class="px-3.5 py-1.5 premium-btn font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
+              <button id="btn-hint" class="px-3 sm:px-3.5 py-1.5 premium-btn font-mono text-[10px] uppercase tracking-wider flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="16" x2="12" y2="12" />
@@ -339,11 +355,11 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
             <!-- Answer submission buttons -->
             <div class="flex items-center gap-2">
               <!-- Quit Button -->
-              <button id="btn-end-early" class="premium-btn border-accent-red/20 text-accent-red hover:bg-accent-red/10 px-4 py-2 rounded-full font-mono text-[10px] tracking-wider uppercase cursor-pointer transition-all">
+              <button id="btn-end-early" class="premium-btn border-accent-red/20 text-accent-red hover:bg-accent-red/10 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full font-mono text-[10px] tracking-wider uppercase cursor-pointer transition-all whitespace-nowrap">
                 Quit
               </button>
               <!-- Premium primary CTA button -->
-              <button id="btn-submit-answer" class="px-6 py-2.5 premium-btn premium-btn-primary font-semibold rounded-full font-mono text-[10px] tracking-wider uppercase cursor-pointer transition-all shadow-md">
+              <button id="btn-submit-answer" class="px-5 py-2 sm:px-6 sm:py-2.5 premium-btn premium-btn-primary font-semibold rounded-full font-mono text-[10px] tracking-wider uppercase cursor-pointer transition-all shadow-md whitespace-nowrap">
                 SEND ANSWER
               </button>
             </div>
@@ -510,10 +526,11 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
                 <div id="coding-editor-gutter" class="w-10 bg-[#1a1a1a] text-[10px] font-mono text-mute/30 pt-3.5 pb-3.5 pr-2 text-right select-none border-r border-white/5 font-light leading-[20px] overflow-hidden h-full">
                   1
                 </div>
-                <!-- Code text area -->
+                <!-- Code text area (Anti-paste enforced) -->
                 <textarea id="coding-editor-textarea" spellcheck="false" 
+                  onpaste="return false;" ondrop="return false;" autocomplete="off"
                   class="flex-grow bg-transparent p-3.5 text-xs font-mono text-ink/90 placeholder-mute/30 focus:outline-none leading-[20px] resize-none overflow-y-auto h-full"
-                  placeholder="// Write your code solution here..."></textarea>
+                  placeholder="// Write your code solution here (pasting is disabled)..."></textarea>
               </div>
 
               <!-- Editor Status bar -->
@@ -723,9 +740,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   const togglePasteBtn = document.getElementById('toggle-paste-btn');
   const inputResumeText = document.getElementById('input-resume-text');
   const topicTags = document.querySelectorAll('.topic-tag');
-  const selectDifficulty = document.getElementById('select-difficulty');
-  const selectCount = document.getElementById('select-count');
-  const selectVoice = document.getElementById('select-voice');
+  const selectDifficulty = document.getElementById('select-difficulty') as HTMLSelectElement | null;
+  const selectCount = document.getElementById('select-count') as HTMLSelectElement | null;
+  const selectVoice = document.getElementById('select-voice') as HTMLSelectElement | null;
+  const btnPreviewVoice = document.getElementById('btn-preview-voice');
   const btnStart = document.getElementById('btn-start');
 
   // Interview simulator HUD controls
@@ -790,6 +808,68 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   const voiceBars = document.getElementById('voice-bars');
   const orbIcon = document.getElementById('orb-icon');
 
+  // --- ANTI-PASTE ENFORCEMENT ---
+  function showPasteBlockedToast() {
+    let toast = document.getElementById('paste-blocked-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'paste-blocked-toast';
+      toast.className = 'fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#1a0a0a]/95 border border-red-500/50 text-red-200 px-5 py-2.5 rounded-full text-xs font-mono shadow-[0_10px_30px_rgba(239,68,68,0.3)] backdrop-blur-md z-50 flex items-center gap-2.5 pointer-events-none transition-all duration-300 opacity-0 translate-y-2 select-none';
+      toast.innerHTML = `
+        <svg class="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+        <span class="font-medium">Pasting is disabled for interview answers. Please type or speak directly.</span>
+      `;
+      document.body.appendChild(toast);
+    }
+    toast.classList.remove('opacity-0', 'translate-y-2');
+    toast.classList.add('opacity-100', 'translate-y-0');
+    clearTimeout((toast as any)._timeout);
+    (toast as any)._timeout = setTimeout(() => {
+      toast.classList.remove('opacity-100', 'translate-y-0');
+      toast.classList.add('opacity-0', 'translate-y-2');
+    }, 2800);
+  }
+
+  function disablePastingOnElement(el: HTMLElement | null) {
+    if (!el) return;
+    el.addEventListener('paste', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showPasteBlockedToast();
+      return false;
+    });
+    el.addEventListener('keydown', (e: KeyboardEvent) => {
+      // Ctrl+V or Cmd+V
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V' || e.code === 'KeyV')) {
+        e.preventDefault();
+        e.stopPropagation();
+        showPasteBlockedToast();
+        return false;
+      }
+      // Shift+Insert
+      if (e.shiftKey && (e.key === 'Insert' || e.code === 'Insert')) {
+        e.preventDefault();
+        e.stopPropagation();
+        showPasteBlockedToast();
+        return false;
+      }
+    });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showPasteBlockedToast();
+      return false;
+    });
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showPasteBlockedToast();
+      return false;
+    });
+  }
+
   // --- INITIALIZE ON LOAD ---
   document.addEventListener('DOMContentLoaded', () => {
     const configData = document.getElementById('env-config');
@@ -803,6 +883,37 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
 
     // Bind Web Speech recognition
     setupSpeechRecognition();
+
+    // Enforce anti-paste restrictions on interview answer inputs
+    disablePastingOnElement(textareaAnswer);
+    disablePastingOnElement(codingEditorTextarea);
+    disablePastingOnElement(liveSubtitleBox);
+
+    // Initialize voice preference
+    const savedVoice = localStorage.getItem('selected_voice');
+    if (savedVoice) {
+      voiceName = savedVoice;
+      if (selectVoice) selectVoice.value = savedVoice;
+    } else if (selectVoice) {
+      voiceName = selectVoice.value;
+    }
+
+    if (selectVoice) {
+      selectVoice.addEventListener('change', () => {
+        voiceName = selectVoice.value;
+        localStorage.setItem('selected_voice', voiceName);
+      });
+    }
+
+    if (btnPreviewVoice) {
+      btnPreviewVoice.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        unlockAudioContextAndPlayer();
+        const testText = "Hello! I am your AI interviewer, and I will be conducting your technical interview today.";
+        speakQuestion(testText);
+      });
+    }
 
     // Generate custom "glitchsound" user sound bars dynamically
     const userSoundbar = document.getElementById('user-glitch-soundbar');
@@ -821,13 +932,12 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     // Start user soundbar animation loop
     animateUserSoundbar();
 
-    // Initialize premium interactive features
-    initMetallicCursor();
+    // Initialize premium interactive features (native fast cursor is used)
     initLiquidBackground();
     initCardTilt();
     initThemeToggle();
 
-    // Pre-trigger browser voices loading for Web Speech API fallback
+    // Pre-trigger browser voices loading for Web Speech API
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
@@ -1524,7 +1634,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
 
   // --- ELEVENLABS AUDIO UTILITY ---
   async function speakViaElevenLabs(text, voiceType) {
-    const voiceId = ELEVENLABS_VOICE_IDS[voiceType] || ELEVENLABS_VOICE_IDS.eleven_thomas;
+    const voiceId = ELEVENLABS_VOICE_IDS[voiceType] || ELEVENLABS_VOICE_IDS.eleven_adam;
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
     
     const response = await fetch(url, {
@@ -1641,6 +1751,15 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
   }
 
   // --- TEXT-TO-SPEECH PLAYBACK (TTS) ---
+  const EDGE_VOICE_MAP: Record<string, string> = {
+    andrew: "en-US-AndrewMultilingualNeural",
+    brian: "en-US-BrianMultilingualNeural",
+    ryan: "en-GB-RyanNeural",
+    sonia: "en-GB-SoniaNeural",
+    ava: "en-US-AvaMultilingualNeural",
+    emma: "en-US-EmmaMultilingualNeural"
+  };
+
   function unlockAudioContextAndPlayer() {
     try {
       sharedAudioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA";
@@ -1657,7 +1776,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     }
   }
 
-  function speakQuestion(text) {
+  async function speakQuestion(text: string) {
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     }
@@ -1672,100 +1791,53 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     if (isCodingMode && (cleanText.includes('#') || cleanText.includes('Given') || cleanText.includes('nums') || cleanText.includes('solve('))) {
       cleanText = "I have displayed the coding challenge on the left. Please review the problem description and write your solution in the editor on the right. You can ask me clarifying questions or request hints by using the microphone button at the bottom.";
     }
-    const selectedVoiceVal = selectVoice.value;
-    const isElevenVoice = selectedVoiceVal.startsWith('eleven_');
-    const isEdgeVoice = selectedVoiceVal.startsWith('edge_');
 
-    let fallbackTriggered = false;
-    const triggerFallback = () => {
-      if (fallbackTriggered) return;
-      fallbackTriggered = true;
-      isSpeakingBot = false;
-      activeAudioElement = null;
-      speakBrowserFallback(cleanText);
-    };
+    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'andrew')).toLowerCase();
+    const edgeVoice = EDGE_VOICE_MAP[currentVoiceChoice] || "en-US-AndrewMultilingualNeural";
 
-    if (isEdgeVoice) {
-      isSpeakingBot = true;
-      if (recognition && !isMuted) {
-        try { recognition.stop(); } catch(e) {}
-      }
-      setOrbState('speaking');
-
-      let voiceName = 'en-US-AndrewMultilingualNeural';
-      if (selectedVoiceVal === 'edge_brian') voiceName = 'en-US-BrianNeural';
-      if (selectedVoiceVal === 'edge_emma') voiceName = 'en-US-EmmaNeural';
-
-      fetch('http://127.0.0.1:5000/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, voice: voiceName })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        sharedAudioPlayer.src = data.audio;
-        activeAudioElement = sharedAudioPlayer;
-        
-        sharedAudioPlayer.onplay = () => {
-          isSpeakingBot = true;
-          setOrbState('speaking');
-          startWordByWordRendering(data.words, cleanText);
-        };
-        sharedAudioPlayer.onended = () => {
-          isSpeakingBot = false;
-          activeAudioElement = null;
-          stopWordByWordRendering();
-          stopTypewriter();
-          if (isCodingMode && codingHintToast) {
-            codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
-            setTimeout(() => {
-              if (!isSpeakingBot) hideCodingHintToast();
-            }, 6000);
-          } else {
-            const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
-            if (targetEl) targetEl.textContent = cleanText;
-          }
-          onSpeechPlaybackEnd();
-        };
-        sharedAudioPlayer.onerror = (e) => {
-          console.error("Edge audio element playback error:", e);
-          triggerFallback();
-        };
-        
-        sharedAudioPlayer.play().catch(err => {
-          console.error("Failed to play Edge audio, falling back:", err);
-          triggerFallback();
-        });
-      })
-      .catch(err => {
-        console.error("Failed to fetch Edge TTS data, falling back:", err);
-        triggerFallback();
+    // Attempt local Edge-TTS backend streaming first if active
+    let playedViaBackend = false;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1600);
+      const res = await fetch("http://127.0.0.1:5000/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: cleanText, voice: edgeVoice }),
+        signal: controller.signal
       });
-    } else if (isElevenVoice && elevenApiKey) {
-      isSpeakingBot = true;
-      if (recognition && !isMuted) {
-        try { recognition.stop(); } catch(e) {}
-      }
-      setOrbState('speaking');
+      clearTimeout(timeoutId);
 
-      speakViaElevenLabs(cleanText, selectedVoiceVal)
-        .then((audio) => {
-          activeAudioElement = audio;
-          audio.onplay = () => {
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audio) {
+          sharedAudioPlayer.src = data.audio;
+          activeAudioElement = sharedAudioPlayer;
+
+          sharedAudioPlayer.onplay = () => {
             isSpeakingBot = true;
+            if (recognition && !isMuted) {
+              try { recognition.stop(); } catch(e) {}
+            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              try { mediaRecorder.pause(); } catch(e) {}
+            }
             setOrbState('speaking');
-            const duration = audio.duration && !isNaN(audio.duration) && audio.duration > 0
-              ? audio.duration
-              : (cleanText.split(' ').length * 60) / 140;
-            startTypewriter(cleanText, duration);
+            renderChatHistory();
+
+            if (data.words && Array.isArray(data.words) && data.words.length > 0) {
+              startWordByWordRendering(data.words, cleanText);
+            } else {
+              const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
+              startTypewriter(cleanText, duration);
+            }
           };
-          audio.onended = () => {
+
+          sharedAudioPlayer.onended = () => {
             isSpeakingBot = false;
             activeAudioElement = null;
             stopTypewriter();
+            stopWordByWordRendering();
             if (isCodingMode && codingHintToast) {
               codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
               setTimeout(() => {
@@ -1777,76 +1849,96 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
             }
             onSpeechPlaybackEnd();
           };
-          audio.onerror = (e) => {
-            console.error("Audio playback error:", e);
-            triggerFallback();
+
+          sharedAudioPlayer.onerror = () => {
+            speakBrowserFallback(cleanText);
           };
-          audio.play().catch(err => {
-            console.error("Failed to autoplay audio:", err);
-            triggerFallback();
-          });
-        })
-        .catch((err) => {
-          console.warn("ElevenLabs TTS failed, falling back to browser synthesis:", err);
-          triggerFallback();
-        });
-    } else {
-      if (isElevenVoice && !elevenApiKey) {
-        console.warn("ElevenLabs key missing, falling back to browser synthesis.");
+
+          await sharedAudioPlayer.play();
+          playedViaBackend = true;
+        }
       }
-      triggerFallback();
+    } catch (e) {
+      // Backend not running or aborted; use browser speech synthesis seamlessly
+      playedViaBackend = false;
+    }
+
+    if (!playedViaBackend) {
+      speakBrowserFallback(cleanText);
     }
   }
 
-  function speakBrowserFallback(cleanText) {
+  function speakBrowserFallback(cleanText: string) {
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
     activeUtterance = utterance;
     const voices = window.speechSynthesis.getVoices();
-    let selectedVoice = null;
-    
-    // Prioritize finding a browser voice named "Andrew"
-    selectedVoice = voices.find(v => v.name.toLowerCase().includes('andrew'));
+    let selectedVoice: SpeechSynthesisVoice | null = null;
 
+    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'andrew')).toLowerCase();
+
+    // 1. Exact or partial direct match
+    selectedVoice = voices.find(v => v.name.toLowerCase().includes(currentVoiceChoice)) || null;
+
+    // 2. Calibrated Gender & Accent matching
     if (!selectedVoice) {
-      if (selectVoice.value && !selectVoice.value.startsWith('eleven_') && !selectVoice.value.startsWith('edge_')) {
-        selectedVoice = voices.find(v => v.name === selectVoice.value);
+      if (currentVoiceChoice.includes('andrew') || currentVoiceChoice.includes('brian')) {
+        // Natural American Male voice
+        selectedVoice = voices.find(v => {
+          const n = v.name.toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return l.startsWith('en') && (n.includes('andrew') || n.includes('brian') || n.includes('david') || n.includes('mark') || n.includes('male') || n.includes('guy')) && !n.includes('female');
+        }) || null;
+      } else if (currentVoiceChoice.includes('ryan')) {
+        // Natural British Male voice
+        selectedVoice = voices.find(v => {
+          const n = v.name.toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return (l.includes('gb') || l.includes('uk')) && (n.includes('ryan') || n.includes('george') || n.includes('oliver') || n.includes('male')) && !n.includes('female');
+        }) || voices.find(v => {
+          const n = v.name.toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return l.startsWith('en') && (n.includes('male') || n.includes('david')) && !n.includes('female');
+        }) || null;
+      } else if (currentVoiceChoice.includes('sonia')) {
+        // Natural British Female voice
+        selectedVoice = voices.find(v => {
+          const n = v.name.toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return (l.includes('gb') || l.includes('uk')) && (n.includes('sonia') || n.includes('libby') || n.includes('mia') || n.includes('hazel') || n.includes('female'));
+        }) || voices.find(v => v.name.toLowerCase().includes('google uk english female')) || null;
+      } else if (currentVoiceChoice.includes('ava') || currentVoiceChoice.includes('emma')) {
+        // Natural American Female voice
+        selectedVoice = voices.find(v => {
+          const n = v.name.toLowerCase();
+          const l = (v.lang || '').toLowerCase();
+          return (l.includes('us') || l.startsWith('en')) && (n.includes('ava') || n.includes('emma') || n.includes('jenny') || n.includes('aria') || n.includes('zira') || n.includes('samantha')) && !n.includes('male');
+        }) || voices.find(v => v.name.toLowerCase().includes('google us english') && !v.name.toLowerCase().includes('male')) || null;
       }
     }
 
-    const femaleVoiceKeywords = [
-      'female', 'zira', 'hazel', 'susan', 'heera', 'haruka', 'jessica', 'karen', 
-      'moira', 'tessa', 'veena', 'samantha', 'victoria', 'kyoko', 'yuri', 'mei-jia',
-      'sin-ji', 'fiona', 'zoe', 'stephanie', 'anna', 'helena', 'zosia', 'laura'
-    ];
-
+    // 3. Fallback to any natural/neural English voice
     if (!selectedVoice) {
       selectedVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        const lang = v.lang.toLowerCase();
-        const isEnglish = lang.includes('en');
-        const isExplicitlyMale = name.includes('male') || name.includes('david') || name.includes('daniel') || name.includes('google us english') || name.includes('andrew') || name.includes('brian') || name.includes('thomas') || name.includes('antoni') || name.includes('adam');
-        return isEnglish && isExplicitlyMale;
-      });
+        const n = v.name.toLowerCase();
+        const l = (v.lang || '').toLowerCase();
+        return l.startsWith('en') && (n.includes('natural') || n.includes('neural') || n.includes('online') || n.includes('google'));
+      }) || null;
     }
 
+    // 4. Ultimate fallback to any English voice
     if (!selectedVoice) {
-      selectedVoice = voices.find(v => {
-        const name = v.name.toLowerCase();
-        const lang = v.lang.toLowerCase();
-        const isEnglish = lang.includes('en');
-        const isFemale = femaleVoiceKeywords.some(keyword => name.includes(keyword));
-        return isEnglish && !isFemale;
-      });
-    }
-
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => v.lang.toLowerCase().includes('en'));
+      selectedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0] || null;
     }
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
     }
 
+    // Natural human conversational cadence
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
@@ -1863,7 +1955,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       setOrbState('speaking');
       renderChatHistory(); // Ensure the active question bubble has content = "" and id="active-question-bubble"
       
-      const duration = (cleanText.split(' ').length * 60) / 140;
+      const duration = (cleanText.split(/\s+/).length * 60) / 140;
       startTypewriter(cleanText, duration);
       
       (window as any).speechStartTime = Date.now();
@@ -2802,8 +2894,12 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     }
 
     // Read input configurations
-    difficulty = selectDifficulty.value;
-    questionCount = parseInt(selectCount.value, 10) || 5;
+    difficulty = selectDifficulty ? selectDifficulty.value : 'Mid-Level (Medium)';
+    questionCount = selectCount ? (parseInt(selectCount.value, 10) || 5) : 5;
+    if (selectVoice) {
+      voiceName = selectVoice.value;
+      localStorage.setItem('selected_voice', voiceName);
+    }
     
     // Fetch manual resume text if paste mode is activated
     if (!inputResumeText.classList.contains('hidden')) {
@@ -2865,11 +2961,11 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     } else {
       if (mainEl) {
         mainEl.classList.remove('items-stretch');
-        mainEl.classList.add('items-center', 'justify-center');
+        mainEl.classList.add('items-start', 'md:items-center', 'justify-center');
       }
       if (views.interview) {
         views.interview.classList.remove('max-w-none', 'w-full', 'h-full', 'px-4', 'py-2', 'flex-grow');
-        views.interview.classList.add('max-w-4xl', 'px-6', 'py-8', 'mx-auto');
+        views.interview.classList.add('max-w-6xl', 'w-full', 'px-4', 'sm:px-6', 'py-2', 'sm:py-4', 'mx-auto');
       }
       if (codingWorkspace) {
         codingWorkspace.classList.remove('h-[calc(100vh-95px)]', 'rounded-none');
@@ -2975,7 +3071,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
       questionsList.push(firstQuestion);
       if (isCodingMode) {
         displayCodingProblem(firstQuestion);
-        // Play verbal intro using Andrew voice
+        // Play verbal intro using selected standard heavy voice
         speakQuestion(firstQuestion);
       } else {
         displayQuestion(firstQuestion);
@@ -3599,119 +3695,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || "";
     clearInterval(globalTimerInterval);
   }
 
-  // --- PREMIUM INTERACTIVE VISUALS & METALLIC CURSOR SYSTEM ---
-
-  // Custom Metallic T-1000 Mercury Cursor Physics
-  function initMetallicCursor() {
-    const cursor = document.getElementById('metal-cursor');
-    if (!cursor) return;
-    const core = cursor.querySelector('.cursor-core');
-    if (!core) return;
-
-    // Check if touch device
-    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isTouchDevice) {
-      cursor.style.display = 'none';
-      return;
-    }
-
-    // Enable custom cursor styles globally on body
-    document.body.classList.add('custom-cursor-enabled');
-
-    let mouseX = window.innerWidth / 2;
-    let mouseY = window.innerHeight / 2;
-    let cursorX = mouseX;
-    let cursorY = mouseY;
-    let lastMoveTime = Date.now();
-    let isPressed = false;
-
-    window.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      cursor.style.display = 'block';
-      lastMoveTime = Date.now();
-    });
-
-    // Handle tactile physical presses (compressing the metallic sphere)
-    window.addEventListener('mousedown', () => {
-      isPressed = true;
-      core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #cbd5e1 15%, #475569 55%, #1e293b 85%, #020617 100%)';
-    });
-
-    window.addEventListener('mouseup', () => {
-      isPressed = false;
-      if (document.body.classList.contains('custom-cursor-hovering')) {
-        core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #93c5fd 15%, #2563eb 55%, #1d4ed8 80%, #0f172a 100%)';
-      } else {
-        core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #e2e8f0 15%, #64748b 55%, #334155 80%, #0f172a 100%)';
-      }
-    });
-
-    // Delegate hover class triggers dynamically
-    window.addEventListener('mouseover', (e) => {
-      const target = e.target;
-      if (target && target.closest('button, a, input, select, textarea, [role="button"], .topic-tag, #pdf-drop-zone')) {
-        document.body.classList.add('custom-cursor-hovering');
-        if (!isPressed) {
-          core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #93c5fd 15%, #2563eb 55%, #1d4ed8 80%, #0f172a 100%)';
-        }
-      }
-    });
-
-    window.addEventListener('mouseout', (e) => {
-      const target = e.target;
-      if (target && target.closest('button, a, input, select, textarea, [role="button"], .topic-tag, #pdf-drop-zone')) {
-        document.body.classList.remove('custom-cursor-hovering');
-        if (!isPressed) {
-          core.style.background = 'radial-gradient(circle at 30% 30%, #ffffff 0%, #e2e8f0 15%, #64748b 55%, #334155 80%, #0f172a 100%)';
-        }
-      }
-    });
-
-    // Smooth inertia updates
-    function updateCursor() {
-      const dx = mouseX - cursorX;
-      const dy = mouseY - cursorY;
-      
-      // Lerp positioning
-      cursorX += dx * 0.16;
-      cursorY += dy * 0.16;
-
-      const speed = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
-
-      // Squeeze and stretch mapping (T-1000 mercury effect)
-      let stretch = 1;
-      let squeeze = 1;
-      
-      if (speed > 1.5) {
-        stretch = Math.min(1.45, 1 + speed * 0.015);
-        squeeze = 1 / stretch;
-      }
-
-      // Add translate(-50%, -50%) so that center is aligned under pointer
-      cursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
-
-      const clickScale = isPressed ? 0.75 : 1.0;
-
-      if (document.body.classList.contains('custom-cursor-hovering')) {
-        core.style.transform = `scale(${1.4 * clickScale})`;
-      } else {
-        core.style.transform = `rotate(${angle}rad) scale(${stretch * clickScale}, ${squeeze * clickScale})`;
-      }
-
-      // Hide cursor if inactive to clear view
-      if (Date.now() - lastMoveTime > 5000) {
-        cursor.style.opacity = '0';
-      } else {
-        cursor.style.opacity = '1';
-      }
-
-      requestAnimationFrame(updateCursor);
-    }
-
-    updateCursor();
-  }
+  // --- INTERACTION HANDLING (Native hardware cursor active with zero input lag) ---
 
   // Interactive Gooey WebGL Liquid Background (Domain-Warped FBM Liquid Distortion Shader)
   function initLiquidBackground() {

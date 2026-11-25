@@ -10,7 +10,7 @@ function ttsServerPlugin() {
   return {
     name: 'tts-server-plugin',
     configureServer(server) {
-      const pythonPath = '/home/simran/Desktop/code/rag/ragenv/bin/python';
+      const pythonPath = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : '/home/simran/Desktop/code/rag/ragenv/bin/python');
       const scriptPath = path.resolve('./src/utils/tts_server.py');
       
       import('net').then(({ default: net }) => {
