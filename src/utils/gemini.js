@@ -307,17 +307,30 @@ export async function getFinalEvaluation(apiKey, sessionContext, chatHistory) {
 
   const totalTargetCount = sessionContext.questionCount || Math.max(modelQuestions.length, 5);
 
-  // Filter for genuine, substantive answers (not "idk", "skip", "bhul gaya", or blanks)
+  // Filter for genuine, substantive answers (not "idk", "skip", "bhul gaya", "santa", or casual chatter)
   const nonAnswerKeywords = [
     "idk", "i don't know", "i dont know", "no idea", "skip", "pass", 
     "bhul gaya", "bhul gai", "pata nahi", "pata nahin", "no response", 
-    "quit", "exit", "dunno", "nothing"
+    "quit", "exit", "dunno", "nothing", "santa", "hehe", "haha", 
+    "here we go", "thank you", "thanks", "test", "testing", "asdf",
+    "okay", "ok", "cool", "yeah", "yes", "no", "wrap up", "done"
   ];
   
   const validAnswers = rawAnswers.filter(ans => {
     const text = (ans || "").trim().toLowerCase();
-    if (text.length < 15) return false;
-    return !nonAnswerKeywords.some(kw => text.includes(kw) && text.length < 40);
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    
+    // Substantive answer requires at least 25 characters and at least 5 words
+    if (text.length < 25 || words.length < 5) return false;
+    
+    // If answer contains non-answer keywords and is under 60 characters, it's chatter
+    if (nonAnswerKeywords.some(kw => text.includes(kw)) && text.length < 60) return false;
+
+    // Check if the words are all just greetings or generic phrases
+    const chatterCount = words.filter(w => nonAnswerKeywords.includes(w)).length;
+    if (chatterCount / words.length > 0.4) return false;
+
+    return true;
   });
 
   // Strict Zero-answer check: If candidate answered 0 questions or gave only non-answers, score is strictly 0.
@@ -440,8 +453,9 @@ JSON SCHEMA:
   };
 
   const rawJson = await callGemini(apiKey, payload);
+  let parsed = null;
   try {
-    return JSON.parse(rawJson);
+    parsed = JSON.parse(rawJson);
   } catch (err) {
     console.warn("Failed to parse initial Gemini response, attempting cleanup:", err);
     try {
@@ -452,11 +466,30 @@ JSON SCHEMA:
       const firstBrace = cleaned.indexOf("{");
       const lastBrace = cleaned.lastIndexOf("}");
       if (firstBrace !== -1 && lastBrace !== -1) {
-        return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+        parsed = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
       }
     } catch (cleanupErr) {
       console.error("Cleanup parsing failed as well:", cleanupErr);
     }
+  }
+
+  // Programmatic verification & strict ceiling enforcement
+  if (parsed && typeof parsed.overallScore === 'number') {
+    // If candidate answered only K questions out of totalTargetCount, cap technical score strictly to (K / totalTargetCount)
+    const maxProratedScore = Math.round((validAnswers.length / totalTargetCount) * 100);
+    parsed.techScore = Math.min(parsed.techScore, maxProratedScore);
+    parsed.commScore = Math.min(parsed.commScore, Math.min(100, maxProratedScore + 15));
+    parsed.overallScore = Math.round(0.7 * parsed.techScore + 0.3 * parsed.commScore);
+
+    if (validAnswers.length === 0) {
+      parsed.overallScore = 0;
+      parsed.techScore = 0;
+      parsed.commScore = 0;
+      parsed.summary = `No technical answers were provided during this session on ${sessionContext.topics.join(", ")}. Complete all questions with technical depth to receive an objective evaluation.`;
+    }
+
+    return parsed;
+  }
 
     // Mathematical fallback grade calculation when AI response is unavailable
     const totalCount = sessionContext.questionCount || Math.max(modelQuestions.length, 5);
@@ -574,7 +607,6 @@ JSON SCHEMA:
         link: `https://www.google.com/search?q=${encodeURIComponent(t + " interview questions and trade-offs")}`
       }))
     };
-  }
 }
 
 /**
