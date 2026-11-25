@@ -212,18 +212,27 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
                 <label class="block text-[10px] font-mono text-mute uppercase">
                   Interviewer Voice
                 </label>
-                <button type="button" id="btn-preview-voice" title="Test Voice Output" class="text-[9px] font-mono text-link hover:underline cursor-pointer bg-transparent border-0 flex items-center gap-1">
-                  <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                  <span>Test Voice</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <a href="http://localhost:4455" target="_blank" rel="noopener noreferrer" title="Open full Voice Lab to test all 47 voices" class="text-[9px] font-mono text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-0.5">
+                    <span>Voice Lab ↗</span>
+                  </a>
+                  <button type="button" id="btn-preview-voice" title="Test Voice Output" class="text-[9px] font-mono text-link hover:underline cursor-pointer bg-transparent border-0 flex items-center gap-1">
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <span>Test</span>
+                  </button>
+                </div>
               </div>
               <select id="select-voice" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
-                <option value="andrew" class="bg-[#0f172a]" selected>Andrew (US Male - Confident)</option>
-                <option value="brian" class="bg-[#0f172a]">Brian (US Male - Technical)</option>
-                <option value="ryan" class="bg-[#0f172a]">Ryan (UK Male - Formal)</option>
-                <option value="sonia" class="bg-[#0f172a]">Sonia (UK Female - Crisp)</option>
-                <option value="ava" class="bg-[#0f172a]">Ava (US Female - Clear)</option>
-                <option value="emma" class="bg-[#0f172a]">Emma (US Female - Calm)</option>
+                <option value="en-US-JennyNeural" class="bg-[#0f172a]" selected>Jenny (US Female - Warm & Human) 🌟</option>
+                <option value="en-US-GuyNeural" class="bg-[#0f172a]">Guy (US Male - Natural & Confident) 🌟</option>
+                <option value="en-US-AriaNeural" class="bg-[#0f172a]">Aria (US Female - Expressive & Clear)</option>
+                <option value="en-US-ChristopherNeural" class="bg-[#0f172a]">Christopher (US Male - Articulate)</option>
+                <option value="en-US-AndrewMultilingualNeural" class="bg-[#0f172a]">Andrew (US Male - Authoritative)</option>
+                <option value="en-US-BrianMultilingualNeural" class="bg-[#0f172a]">Brian (US Male - Calm & Thoughtful)</option>
+                <option value="en-GB-RyanNeural" class="bg-[#0f172a]">Ryan (UK Male - Polished British)</option>
+                <option value="en-GB-SoniaNeural" class="bg-[#0f172a]">Sonia (UK Female - Crisp British)</option>
+                <option value="en-IN-NeerjaNeural" class="bg-[#0f172a]">Neerja (India Female - Expressive)</option>
+                <option value="en-IN-PrabhatNeural" class="bg-[#0f172a]">Prabhat (India Male - Professional)</option>
               </select>
             </div>
           </div>
@@ -1752,10 +1761,16 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
   // --- TEXT-TO-SPEECH PLAYBACK (TTS) ---
   const EDGE_VOICE_MAP: Record<string, string> = {
+    jenny: "en-US-JennyNeural",
+    guy: "en-US-GuyNeural",
+    aria: "en-US-AriaNeural",
+    christopher: "en-US-ChristopherNeural",
     andrew: "en-US-AndrewMultilingualNeural",
     brian: "en-US-BrianMultilingualNeural",
     ryan: "en-GB-RyanNeural",
     sonia: "en-GB-SoniaNeural",
+    neerja: "en-IN-NeerjaNeural",
+    prabhat: "en-IN-PrabhatNeural",
     ava: "en-US-AvaMultilingualNeural",
     emma: "en-US-EmmaMultilingualNeural"
   };
@@ -1792,74 +1807,62 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       cleanText = "I have displayed the coding challenge on the left. Please review the problem description and write your solution in the editor on the right. You can ask me clarifying questions or request hints by using the microphone button at the bottom.";
     }
 
-    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'andrew')).toLowerCase();
-    const edgeVoice = EDGE_VOICE_MAP[currentVoiceChoice] || "en-US-AndrewMultilingualNeural";
+    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'en-US-JennyNeural'));
+    const edgeVoice = EDGE_VOICE_MAP[currentVoiceChoice.toLowerCase()] || currentVoiceChoice;
 
-    // Attempt local Edge-TTS backend streaming first if active
+    // Attempt local ultra-realistic Node.js Edge Neural server (port 4455) first
     let playedViaBackend = false;
     try {
+      const voiceLabUrl = `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(edgeVoice)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1600);
-      const res = await fetch("http://127.0.0.1:5000/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleanText, voice: edgeVoice }),
-        signal: controller.signal
-      });
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const headCheck = await fetch(voiceLabUrl, { method: "HEAD", signal: controller.signal });
       clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.audio) {
-          sharedAudioPlayer.src = data.audio;
-          activeAudioElement = sharedAudioPlayer;
+      if (headCheck.ok) {
+        sharedAudioPlayer.src = voiceLabUrl;
+        activeAudioElement = sharedAudioPlayer;
 
-          sharedAudioPlayer.onplay = () => {
-            isSpeakingBot = true;
-            if (recognition && !isMuted) {
-              try { recognition.stop(); } catch(e) {}
-            }
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-              try { mediaRecorder.pause(); } catch(e) {}
-            }
-            setOrbState('speaking');
-            renderChatHistory();
+        sharedAudioPlayer.onplay = () => {
+          isSpeakingBot = true;
+          if (recognition && !isMuted) {
+            try { recognition.stop(); } catch(e) {}
+          }
+          if (mediaRecorder && mediaRecorder.state === 'recording') {
+            try { mediaRecorder.pause(); } catch(e) {}
+          }
+          setOrbState('speaking');
+          renderChatHistory();
 
-            if (data.words && Array.isArray(data.words) && data.words.length > 0) {
-              startWordByWordRendering(data.words, cleanText);
-            } else {
-              const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
-              startTypewriter(cleanText, duration);
-            }
-          };
+          const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
+          startTypewriter(cleanText, duration);
+        };
 
-          sharedAudioPlayer.onended = () => {
-            isSpeakingBot = false;
-            activeAudioElement = null;
-            stopTypewriter();
-            stopWordByWordRendering();
-            if (isCodingMode && codingHintToast) {
-              codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
-              setTimeout(() => {
-                if (!isSpeakingBot) hideCodingHintToast();
-              }, 6000);
-            } else {
-              const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
-              if (targetEl) targetEl.textContent = cleanText;
-            }
-            onSpeechPlaybackEnd();
-          };
+        sharedAudioPlayer.onended = () => {
+          isSpeakingBot = false;
+          activeAudioElement = null;
+          stopTypewriter();
+          stopWordByWordRendering();
+          if (isCodingMode && codingHintToast) {
+            codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
+            setTimeout(() => {
+              if (!isSpeakingBot) hideCodingHintToast();
+            }, 6000);
+          } else {
+            const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+            if (targetEl) targetEl.textContent = cleanText;
+          }
+          onSpeechPlaybackEnd();
+        };
 
-          sharedAudioPlayer.onerror = () => {
-            speakBrowserFallback(cleanText);
-          };
+        sharedAudioPlayer.onerror = () => {
+          speakBrowserFallback(cleanText);
+        };
 
-          await sharedAudioPlayer.play();
-          playedViaBackend = true;
-        }
+        await sharedAudioPlayer.play();
+        playedViaBackend = true;
       }
     } catch (e) {
-      // Backend not running or aborted; use browser speech synthesis seamlessly
       playedViaBackend = false;
     }
 
