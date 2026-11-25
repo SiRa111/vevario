@@ -503,6 +503,17 @@ const server = http.createServer(async (req, res) => {
 
   // 3. API: Speak text and stream MP3 audio
   if (pathname === '/api/speak' || pathname === '/api/tts') {
+    // Handle HEAD pre-flight quickly without synthesizing
+    if (req.method === 'HEAD') {
+      res.writeHead(200, {
+        'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'no-cache',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end();
+      return;
+    }
+
     const query = parsedUrl.query;
     let voice = query.voice || 'en-GB-RyanNeural';
     let text = query.text || 'Hello, I am your technical interviewer.';

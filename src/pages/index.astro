@@ -206,34 +206,21 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
               </select>
             </div>
 
-            <!-- Interviewer Voice -->
+            <!-- Interviewer Voice (Locked to Ryan) -->
             <div>
               <div class="flex items-center justify-between mb-1.5">
                 <label class="block text-[10px] font-mono text-mute uppercase">
                   Interviewer Voice
                 </label>
-                <div class="flex items-center gap-2">
-                  <a href="http://localhost:4455" target="_blank" rel="noopener noreferrer" title="Open full Voice Lab to test all 47 voices" class="text-[9px] font-mono text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-0.5">
-                    <span>Voice Lab ↗</span>
-                  </a>
-                  <button type="button" id="btn-preview-voice" title="Test Voice Output" class="text-[9px] font-mono text-link hover:underline cursor-pointer bg-transparent border-0 flex items-center gap-1">
-                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    <span>Test</span>
-                  </button>
-                </div>
+                <span class="text-[9px] font-mono text-emerald-400">Locked</span>
               </div>
-              <select id="select-voice" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
-                <option value="en-GB-RyanNeural" class="bg-[#0f172a]" selected>Ryan (UK Male - Crisp British) 🌟 [Default]</option>
-                <option value="en-GB-SoniaNeural" class="bg-[#0f172a]">Sonia (UK Female - Academic British)</option>
-                <option value="en-US-JennyNeural" class="bg-[#0f172a]">Jenny (US Female - Warm & Human)</option>
-                <option value="en-US-GuyNeural" class="bg-[#0f172a]">Guy (US Male - Natural & Confident)</option>
-                <option value="en-US-AriaNeural" class="bg-[#0f172a]">Aria (US Female - Expressive & Clear)</option>
-                <option value="en-US-ChristopherNeural" class="bg-[#0f172a]">Christopher (US Male - Articulate)</option>
-                <option value="en-US-AndrewMultilingualNeural" class="bg-[#0f172a]">Andrew (US Male - Authoritative)</option>
-                <option value="en-US-BrianMultilingualNeural" class="bg-[#0f172a]">Brian (US Male - Calm & Thoughtful)</option>
-                <option value="en-IN-NeerjaNeural" class="bg-[#0f172a]">Neerja (India Female - Expressive)</option>
-                <option value="en-IN-PrabhatNeural" class="bg-[#0f172a]">Prabhat (India Male - Professional)</option>
-              </select>
+              <div class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink flex items-center justify-between opacity-80 cursor-default select-none">
+                <span class="text-white font-medium flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                  Ryan (UK Male - Crisp British)
+                </span>
+                <span class="text-[9px] font-mono text-mute">Default Neural AI</span>
+              </div>
             </div>
           </div>
 
@@ -751,8 +738,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
   const topicTags = document.querySelectorAll('.topic-tag');
   const selectDifficulty = document.getElementById('select-difficulty') as HTMLSelectElement | null;
   const selectCount = document.getElementById('select-count') as HTMLSelectElement | null;
-  const selectVoice = document.getElementById('select-voice') as HTMLSelectElement | null;
-  const btnPreviewVoice = document.getElementById('btn-preview-voice');
+  const selectVoice = null;
   const btnStart = document.getElementById('btn-start');
 
   // Interview simulator HUD controls
@@ -898,31 +884,28 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     disablePastingOnElement(codingEditorTextarea);
     disablePastingOnElement(liveSubtitleBox);
 
-    // Initialize voice preference
-    const savedVoice = localStorage.getItem('selected_voice');
-    if (savedVoice) {
-      voiceName = savedVoice;
-      if (selectVoice) selectVoice.value = savedVoice;
-    } else {
-      voiceName = 'en-GB-RyanNeural';
-      if (selectVoice) selectVoice.value = 'en-GB-RyanNeural';
-      localStorage.setItem('selected_voice', 'en-GB-RyanNeural');
-    }
+    // Interviewer voice is permanently locked to Ryan (UK Male)
+    voiceName = 'en-GB-RyanNeural';
+    localStorage.setItem('selected_voice', 'en-GB-RyanNeural');
 
-    if (selectVoice) {
-      selectVoice.addEventListener('change', () => {
-        voiceName = selectVoice.value;
-        localStorage.setItem('selected_voice', voiceName);
+    // Enter key submits candidate answer directly
+    if (textareaAnswer) {
+      textareaAnswer.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (btnSubmitAnswer) btnSubmitAnswer.click();
+        }
       });
     }
 
-    if (btnPreviewVoice) {
-      btnPreviewVoice.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        unlockAudioContextAndPlayer();
-        const testText = "Hello! I am your AI interviewer, and I will be conducting your technical interview today.";
-        speakQuestion(testText);
+    if (liveSubtitleBox) {
+      liveSubtitleBox.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (btnSubmitAnswer) btnSubmitAnswer.click();
+        }
       });
     }
 
@@ -1371,6 +1354,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       return;
     }
 
+    setOrbState('listening');
+    micInstructions.textContent = "Listening... speak now";
+    btnMicToggle.className = "w-16 h-16 rounded-full bg-accent-green/80 border border-white/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group";
+
     if (mediaRecorder && mediaRecorder.state === 'inactive') {
       try {
         mediaRecorder.start();
@@ -1387,9 +1374,6 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       } catch (e) {}
     } else {
       // Firefox or other unsupported browsers
-      setOrbState('listening');
-      micInstructions.textContent = "Recording... speak now";
-      btnMicToggle.className = "w-16 h-16 rounded-full bg-accent-green/80 border border-white/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group";
       liveSubtitleBox.textContent = "Recording your voice... speak now, and click SEND ANSWER when finished.";
       liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center italic flex items-center justify-center select-none";
     }
@@ -1809,28 +1793,44 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       cleanText = "I have displayed the coding challenge on the left. Please review the problem description and write your solution in the editor on the right. You can ask me clarifying questions or request hints by using the microphone button at the bottom.";
     }
 
-    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'en-GB-RyanNeural'));
-    const edgeVoice = EDGE_VOICE_MAP[currentVoiceChoice.toLowerCase()] || currentVoiceChoice;
+    const ALWAYS_VOICE = 'en-GB-RyanNeural';
+
+    // Interviewer speaks: keep mic muted and in standby state
+    isSpeakingBot = true;
+    stopRecording();
+    if (btnMicToggle) {
+      btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
+      micInstructions.textContent = "Interviewer speaking...";
+    }
+    setOrbState('speaking');
 
     // Attempt ultra-realistic Node.js Edge Neural server (Voice Lab port 4455 or internal /api/speak)
     let playedViaBackend = false;
     const voiceEndpoints = [
-      `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(edgeVoice)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`,
-      `/api/speak?voice=${encodeURIComponent(edgeVoice)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`
+      `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`,
+      `/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`
     ];
 
     for (const voiceLabUrl of voiceEndpoints) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
-        const headCheck = await fetch(voiceLabUrl, { method: "HEAD", signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (headCheck.ok) {
+        const canPlay = await new Promise<boolean>((resolve) => {
           sharedAudioPlayer.src = voiceLabUrl;
           activeAudioElement = sharedAudioPlayer;
 
+          let resolved = false;
+          const playTimeout = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve(false);
+            }
+          }, 6000);
+
           sharedAudioPlayer.onplay = () => {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(playTimeout);
+              resolve(true);
+            }
             isSpeakingBot = true;
             if (recognition && !isMuted) {
               try { recognition.stop(); } catch(e) {}
@@ -1863,10 +1863,23 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
           };
 
           sharedAudioPlayer.onerror = () => {
-            speakBrowserFallback(cleanText);
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(playTimeout);
+              resolve(false);
+            }
           };
 
-          await sharedAudioPlayer.play();
+          sharedAudioPlayer.play().catch(() => {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(playTimeout);
+              resolve(false);
+            }
+          });
+        });
+
+        if (canPlay) {
           playedViaBackend = true;
           break;
         }
@@ -1997,21 +2010,21 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
   }
 
   function onSpeechPlaybackEnd() {
-    if (!isTypingMode && micEnabled) {
-      if (mediaRecorder && mediaRecorder.state === 'paused') {
-        try { mediaRecorder.resume(); } catch(e) {}
-        if (recognition) {
-          try {
-            accumulatedTranscript = textareaAnswer.value.trim();
-            if (accumulatedTranscript) accumulatedTranscript += ' ';
-            recognition.start();
-          } catch(e) {}
-        }
-      } else {
-        startRecording();
-      }
+    isSpeakingBot = false;
+    if (state !== 'interview') {
+      setOrbState('idle');
+      return;
+    }
+
+    if (!isTypingMode) {
+      micEnabled = true;
+      isMuted = false;
+      startRecording();
     } else {
       setOrbState('idle');
+      if (textareaAnswer) {
+        textareaAnswer.focus();
+      }
     }
   }
 
@@ -2132,8 +2145,16 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
     renderChatHistory();
 
-    if (!isSpeakingBot) {
+    if (!isSpeakingBot && questionsList.length > 0) {
       startRecording();
+    } else {
+      isMuted = true;
+      if (btnMicToggle) {
+        btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
+      }
+      if (micInstructions) {
+        micInstructions.textContent = "Standby — Interviewer speaking...";
+      }
     }
   }
 
@@ -2887,6 +2908,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
   // --- VIEW SETUP TRANSITIONS AND BOOTSTRAPPING ---
   btnStart.addEventListener('click', async () => {
+    if (state !== 'setup') return;
+    btnStart.disabled = true;
+    btnStart.blur();
     unlockAudioContextAndPlayer();
     if (!apiKey) {
       console.warn("No Gemini API key configured. Proceeding in local fallback mode.");
@@ -2896,16 +2920,14 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
     if (selectedTopics.length === 0) {
       alert("Please select at least one interview focus topic.");
+      btnStart.disabled = false;
       return;
     }
 
     // Read input configurations
     difficulty = selectDifficulty ? selectDifficulty.value : 'Mid-Level (Medium)';
     questionCount = selectCount ? (parseInt(selectCount.value, 10) || 5) : 5;
-    if (selectVoice) {
-      voiceName = selectVoice.value;
-      localStorage.setItem('selected_voice', voiceName);
-    }
+    voiceName = 'en-GB-RyanNeural';
     
     // Fetch manual resume text if paste mode is activated
     if (!inputResumeText.classList.contains('hidden')) {
@@ -2914,6 +2936,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
     if (!resumeText || !resumeText.trim()) {
       alert("Please upload a Resume PDF or paste your resume text first.");
+      btnStart.disabled = false;
       return;
     }
 
@@ -2938,8 +2961,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       return;
     }
 
-    btnStart.disabled = false;
-    btnStart.textContent = originalBtnText;
+    btnStart.disabled = true;
+    btnStart.blur();
+    isSpeakingBot = true; // Bot will speak question 1, so keep mic muted and neutral!
+    isMuted = true;
 
     // Initialize interview variables
     currentQuestionIndex = 0;
@@ -3150,40 +3175,6 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       }
     }
 
-    // 3. Show live draft text for current unanswered question
-    if (questionsList.length > answersList.length) {
-      let draftText = "";
-      if (isTypingMode) {
-        draftText = textareaAnswer.value.trim();
-      } else {
-        const liveText = liveSubtitleBox.textContent.trim();
-        const ignoredPhrases = [
-          "Voice transcription will appear here in real time...",
-          "Recording your voice... speak now, and click SEND ANSWER when finished.",
-          "Transcribing speech with Gemini 1.5 Flash...",
-          "No speech detected. Click mic to talk.",
-          "Voice was not clear. Try again or click Switch to Type.",
-          "Transcription error. Click mic to try again.",
-          "Tap microphone or type to answer..."
-        ];
-        if (liveText && !ignoredPhrases.includes(liveText)) {
-          draftText = liveText;
-        }
-      }
-
-      if (draftText) {
-        const draftBubble = document.createElement('div');
-        draftBubble.className = "flex justify-end w-full mb-4 opacity-75";
-        
-        const draftInner = document.createElement('div');
-        draftInner.className = "max-w-[85%] rounded-2xl rounded-tr-none px-4 py-2.5 bg-white/5 border border-white/10 border-dashed text-ink/75 text-xs md:text-sm font-light leading-relaxed text-right select-text italic";
-        draftInner.textContent = draftText;
-        
-        draftBubble.appendChild(draftInner);
-        container.appendChild(draftBubble);
-      }
-    }
-
     // Scroll to bottom smoothly after DOM paint
     requestAnimationFrame(() => {
       const lastChild = container.lastElementChild;
@@ -3270,6 +3261,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
   // --- SUBMIT ANSWER LOOP ---
   btnSubmitAnswer.addEventListener('click', async () => {
+    if (isSpeakingBot) return;
+    btnSubmitAnswer.blur();
     unlockAudioContextAndPlayer();
     // If voice mode is active and we are currently recording/not muted
     if (!isTypingMode && !isMuted) {
@@ -3329,6 +3322,11 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
     // Stop microphone if running
     stopRecording();
+    isMuted = true;
+    if (btnMicToggle) {
+      btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
+      micInstructions.textContent = "Standby — Interviewer analyzing...";
+    }
 
     // Track statistics
     totalFillersAccumulated += currentFillersCount;
