@@ -1106,79 +1106,30 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       }
       currentStream = stream;
       
-      // Initialize Web Audio API Analyser Node and Noise Filtering
+      // Initialize or reuse Web Audio API Analyser Node for visualizer
       if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // 1. Create source
-        audioSource = audioContext.createMediaStreamSource(stream);
-        
-        // 1.5. Create Gain Node to boost microphone sensitivity by 4.0x (~12dB)
-        gainNode = audioContext.createGain();
-        gainNode.gain.value = 4.0;
-        
-        // 2. Create highpass filter to cut off low frequency rumble (e.g. traffic, AC hum, below 150Hz)
-        const hpFilter = audioContext.createBiquadFilter();
-        hpFilter.type = 'highpass';
-        hpFilter.frequency.value = 150;
-        
-        // 3. Create lowpass filter to cut off high frequency hiss and click noise (above 3500Hz)
-        const lpFilter = audioContext.createBiquadFilter();
-        lpFilter.type = 'lowpass';
-        lpFilter.frequency.value = 3500;
-        
-        // 4. Create peaking filter to boost standard human speech frequency range (around 1.8kHz)
-        const speechBoostFilter = audioContext.createBiquadFilter();
-        speechBoostFilter.type = 'peaking';
-        speechBoostFilter.frequency.value = 1800; // Center frequency
-        speechBoostFilter.Q.value = 1.0;
-        speechBoostFilter.gain.value = 6; // Boost by 6dB
-        
-        // 5. Create Dynamics Compressor to level audio volume (limits loud transients, boosts quiet words)
-        const compressor = audioContext.createDynamicsCompressor();
-        compressor.threshold.value = -24; // dB
-        compressor.knee.value = 30; // dB
-        compressor.ratio.value = 12;
-        compressor.attack.value = 0.003; // seconds
-        compressor.release.value = 0.25; // seconds
-        
-        // 6. Create Analyser Node for visualizer
-        analyserNode = audioContext.createAnalyser();
-        analyserNode.fftSize = 64; // 32 frequency bins
-        frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
-        
-        // 7. Create MediaStream destination node to record the filtered audio
-        const destination = audioContext.createMediaStreamDestination();
-        
-        // Connect the Web Audio chain
-        audioSource.connect(gainNode);
-        gainNode.connect(hpFilter);
-        hpFilter.connect(lpFilter);
-        lpFilter.connect(speechBoostFilter);
-        speechBoostFilter.connect(compressor);
-        compressor.connect(destination);
-        
-        // Connect compressor to analyser for visual feedback of filtered stream
-        compressor.connect(analyserNode);
-        
-        filteredStream = destination.stream;
-      } else {
-        // Re-route the new media stream source to our existing audio graph
-        if (audioSource) {
-          try {
-            audioSource.disconnect();
-          } catch (e) {}
-        }
-        audioSource = audioContext.createMediaStreamSource(stream);
-        audioSource.connect(gainNode);
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
-      
-      // Explicitly resume audioContext if browser or autoplay policy suspended it
-      if (audioContext && audioContext.state === 'suspended') {
+      if (audioContext.state === 'suspended') {
         await audioContext.resume().catch(e => console.warn("Failed to resume audioContext:", e));
       }
 
-      // Recreate MediaRecorder to attach event handlers directly to the new stream
+      if (audioSource) {
+        try { audioSource.disconnect(); } catch (e) {}
+      }
+      try {
+        audioSource = audioContext.createMediaStreamSource(stream);
+        if (!analyserNode) {
+          analyserNode = audioContext.createAnalyser();
+          analyserNode.fftSize = 64;
+          frequencyData = new Uint8Array(analyserNode.frequencyBinCount);
+        }
+        audioSource.connect(analyserNode);
+      } catch (audioGraphErr) {
+        console.warn("Analyser node setup failed (non-fatal):", audioGraphErr);
+      }
+
+      // Recreate MediaRecorder directly on the clean microphone stream
       if (mediaRecorder) {
         try {
           mediaRecorder.ondataavailable = null;
@@ -1186,7 +1137,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
         } catch (e) {}
       }
       
-      mediaRecorder = new MediaRecorder(filteredStream || stream);
+      mediaRecorder = new MediaRecorder(stream);
       mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunks.push(event.data);
@@ -1207,7 +1158,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       isVirtualMic = false;
       return true;
     } catch (err) {
-      console.warn("Microphone not available or permission denied. Falling back to Virtual Mic simulation.", err);
+      console.warn("Microphone access failed. Falling back to Virtual Mic simulation.", err);
       isVirtualMic = true;
       return true;
     }
@@ -1216,17 +1167,20 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
   function setupSpeechRecognition() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       console.warn("Speech recognition not supported in this browser. Live preview disabled; falling back to direct audio upload.");
-      isTypingMode = true;
-      const btnToggle = document.getElementById('btn-toggle-input');
-      if (btnToggle) btnToggle.classList.add('hidden');
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (recognition) {
+      try {
+        recognition.abort();
+      } catch (e) {}
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = (navigator.language && navigator.language.startsWith('en')) ? navigator.language : 'en-US';
 
     recognition.onstart = () => {
       if (!isSpeakingBot) {
@@ -1268,9 +1222,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     };
 
     recognition.onerror = (event) => {
-      console.error("Speech Recognition Error:", event.error);
+      console.warn("Speech Recognition notice/error:", event.error);
       if (event.error === 'not-allowed') {
-        alert("Microphone permission denied. Switched to manual typing mode.");
+        alert("Microphone permission denied in browser. Switched to manual typing mode.");
         switchToTextMode();
       }
     };
@@ -1278,11 +1232,13 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     recognition.onend = () => {
       // Auto-restart if we are in speech mode, mic is active, and interviewer is NOT speaking
       if (state === 'interview' && micEnabled && !isTypingMode && !isSpeakingBot) {
-        try {
-          accumulatedTranscript = textareaAnswer.value.trim();
-          if (accumulatedTranscript) accumulatedTranscript += ' ';
-          recognition.start();
-        } catch (err) {}
+        setTimeout(() => {
+          try {
+            accumulatedTranscript = textareaAnswer.value.trim();
+            if (accumulatedTranscript) accumulatedTranscript += ' ';
+            recognition.start();
+          } catch (err) {}
+        }, 80);
       } else if (!micEnabled || isTypingMode) {
         btnMicToggle.className = "w-16 h-16 rounded-full bg-slate-900/60 border border-white/10 flex items-center justify-center cursor-pointer hover:scale-[1.05] active:scale-[0.95] transition-all group shadow-md";
         micInstructions.textContent = "Microphone muted. Tap to talk";
@@ -1354,7 +1310,12 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
         accumulatedTranscript = textareaAnswer.value.trim();
         if (accumulatedTranscript) accumulatedTranscript += ' ';
         recognition.start();
-      } catch (e) {}
+      } catch (e) {
+        try {
+          recognition.abort();
+          recognition.start();
+        } catch (e2) {}
+      }
     } else {
       // Firefox or other unsupported browsers
       liveSubtitleBox.textContent = "Recording your voice... speak now, and click SEND ANSWER when finished.";
@@ -1394,7 +1355,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     btnMicToggle.disabled = true;
     setOrbState('thinking');
     
-    liveSubtitleBox.innerHTML = '<span class="text-accent-blue animate-pulse">Transcribing speech with Gemini 1.5 Flash...</span>';
+    liveSubtitleBox.innerHTML = '<span class="text-accent-blue animate-pulse">Transcribing speech with Gemini AI...</span>';
     liveSubtitleBox.className = "w-full glass-inset bg-black/45 border border-white/5 rounded-xl p-4 h-24 text-sm font-light leading-relaxed text-ink/90 overflow-y-auto text-center flex items-center justify-center select-none";
 
     try {
@@ -1412,10 +1373,12 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
           
           liveSubtitleBox.oninput = () => {
             textareaAnswer.value = liveSubtitleBox.textContent;
+            renderChatHistory();
           };
           
           countFillerWords(finalAnswer);
           calculateWpm(finalAnswer);
+          renderChatHistory();
           
           micInstructions.textContent = "Review transcription above (click to edit), then click SEND ANSWER.";
         } else {
@@ -1456,14 +1419,6 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       try {
         recognition.stop();
       } catch (e) {}
-    }
-
-    // Stop microphone stream tracks to turn off the hardware mic light
-    if (currentStream) {
-      try {
-        currentStream.getTracks().forEach(track => track.stop());
-      } catch (e) {}
-      currentStream = null;
     }
 
     setOrbState('idle');
@@ -3316,18 +3271,19 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     if (!isTypingMode && !isMuted) {
       stopRecording();
       
-      const liveText = liveSubtitleBox.textContent.trim();
+      const liveText = (liveSubtitleBox.textContent || "").trim() || (textareaAnswer.value || "").trim();
       const ignoredPhrases = [
         "Voice transcription will appear here in real time...",
         "Recording your voice... speak now, and click SEND ANSWER when finished.",
         "Transcribing speech with Gemini 1.5 Flash...",
+        "Transcribing speech with Gemini AI...",
         "No speech detected. Click mic to talk.",
         "Voice was not clear. Try again or click Switch to Type.",
         "Transcription error. Click mic to try again.",
         "Tap microphone or type to answer..."
       ];
       
-      const hasLiveTranscript = liveText && !ignoredPhrases.includes(liveText) && liveText.length >= 5;
+      const hasLiveTranscript = liveText && !ignoredPhrases.includes(liveText) && liveText.length >= 2;
       
       if (!hasLiveTranscript) {
         if (isVirtualMic) {
@@ -3348,6 +3304,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
         "Voice transcription will appear here in real time...",
         "Recording your voice... speak now, and click SEND ANSWER when finished.",
         "Transcribing speech with Gemini 1.5 Flash...",
+        "Transcribing speech with Gemini AI...",
         "No speech detected. Click mic to talk.",
         "Voice was not clear. Try again or click Switch to Type.",
         "Transcription error. Click mic to try again.",
@@ -3356,6 +3313,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       
       if (ignoredPhrases.includes(finalAnswer)) {
         finalAnswer = "";
+      }
+      if (!finalAnswer && textareaAnswer.value.trim() && !ignoredPhrases.includes(textareaAnswer.value.trim())) {
+        finalAnswer = textareaAnswer.value.trim();
       }
     } else {
       finalAnswer = textareaAnswer.value.trim();

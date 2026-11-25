@@ -563,26 +563,40 @@ export async function transcribeAudio(apiKey, base64Audio, mimeType) {
     }
   };
 
-  // Do not fallback to local LLM, because the local Flask LLM server cannot transcribe audio.
-  // Instead, execute a direct fetch to the Gemini API and throw on rate-limit or error.
-  const url = `${BASE_URL}?key=${apiKey}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  let lastError = null;
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-  if (!response.ok) {
-    throw new Error(`Gemini transcription failed with status ${response.status}`);
+      if (response.ok) {
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text && text.trim()) {
+          return text.trim();
+        }
+      }
+
+      if (response.status === 429 || response.status === 503) {
+        console.warn(`[Gemini STT] Model ${model} rate/quota limit hit (HTTP ${response.status}). Trying next model...`);
+        lastError = new Error(`Quota limit on ${model}`);
+        continue;
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      lastError = new Error(errorData?.error?.message || `HTTP error ${response.status}`);
+    } catch (netErr) {
+      console.warn(`[Gemini STT] Network error on model ${model}:`, netErr);
+      lastError = netErr;
+    }
   }
 
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error("Empty response from Gemini transcription.");
-  }
-  return text;
+  throw lastError || new Error("Failed to transcribe audio with Gemini models.");
 }
 
