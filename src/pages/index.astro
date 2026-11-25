@@ -3516,7 +3516,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     statFillers.textContent = totalFillersAccumulated;
     const avgWpm = allSessionWpms.length > 0 
       ? Math.round(allSessionWpms.reduce((a, b) => a + b, 0) / allSessionWpms.length)
-      : 110;
+      : (answersList.length > 0 ? 80 : 0);
     statWpm.textContent = avgWpm;
 
     // 4. Summaries & lists

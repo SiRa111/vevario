@@ -293,75 +293,125 @@ Provide a very short, subtle, 1-sentence hint that guides them in the right dire
  * @returns {Promise<Object>} - Parsed JSON grade evaluation
  */
 export async function getFinalEvaluation(apiKey, sessionContext, chatHistory) {
-  const prompt = `You are a Senior Principal Software Engineer conducting a comprehensive review of a candidate's completed mock interview.
-Analyze the complete conversation history below and output a detailed evaluation score card.
+  const userMessages = (chatHistory || []).filter(m => m.role === "user");
+  const modelMessages = (chatHistory || []).filter(m => m.role === "model");
+  const totalTargetCount = sessionContext.questionCount || 5;
+
+  // Filter for genuine, substantive answers (not "idk", "skip", "bhul gaya", or blanks)
+  const nonAnswerKeywords = [
+    "idk", "i don't know", "i dont know", "no idea", "skip", "pass", 
+    "bhul gaya", "bhul gai", "pata nahi", "pata nahin", "no response", 
+    "quit", "exit", "dunno", "nothing"
+  ];
+  
+  const validAnswers = userMessages.filter(m => {
+    const text = (m.parts?.[0]?.text || "").trim().toLowerCase();
+    if (text.length < 15) return false;
+    return !nonAnswerKeywords.some(kw => text.includes(kw) && text.length < 40);
+  });
+
+  // Zero-answer safeguard: If candidate answered nothing or gave non-answers, score is strictly 0.
+  // No fake praises, no ego-boost scores.
+  if (userMessages.length === 0 || validAnswers.length === 0) {
+    return {
+      overallScore: 0,
+      techScore: 0,
+      commScore: 0,
+      summary: `No technical answers were provided during this session on ${sessionContext.topics.join(", ")}. The candidate either ended the interview without answering or provided unresponsive replies. Complete all questions with technical depth to receive an objective evaluation.`,
+      strengths: ["Session was initiated."],
+      weaknesses: [
+        "No substantive technical answers were provided for any question.",
+        "Candidate did not demonstrate baseline technical proficiency or problem-solving methodology.",
+        "Interview was exited prematurely or questions were left unattempted."
+      ],
+      questions: modelMessages.map((m, idx) => ({
+        question: m.parts?.[0]?.text || `Question ${idx + 1}`,
+        candidateAnswer: userMessages[idx]?.parts?.[0]?.text || "No response recorded.",
+        idealAnswer: `A comprehensive technical response outlining architecture, performance bottlenecks, and design trade-offs.`,
+        techEvaluation: "Question was unattempted or contained no technical content. 0/100 points.",
+        commEvaluation: "No technical communication provided. 0/100 points.",
+        starCheck: {
+          applicable: false,
+          situation: false,
+          task: false,
+          action: false,
+          result: false
+        }
+      })),
+      studyTopics: sessionContext.topics.map(t => ({
+        topic: t,
+        description: `Fundamental review required: study core principles, architectural patterns, and interview questions for ${t}.`,
+        link: `https://www.google.com/search?q=${encodeURIComponent(t + " technical interview preparation guide")}`
+      }))
+    };
+  }
+
+  const prompt = `You are a strict, objective, and unbiased Principal Software Engineering Bar Raiser conducting an official technical evaluation of a mock interview.
+Your job is to provide honest, realistic, and unvarnished grading. DO NOT flatter the candidate or inflate scores. We show candidates the unvarnished truth so they can genuinely improve.
 
 CONVERSATION HISTORY:
 ${JSON.stringify(chatHistory, null, 2)}
 
 INTERVIEW META:
-- Topics: ${sessionContext.topics.join(", ")}
-- Difficulty: ${sessionContext.difficulty}
-- Total Questions: ${sessionContext.questionCount}
+- Focus Topics: ${sessionContext.topics.join(", ")}
+- Target Difficulty: ${sessionContext.difficulty}
+- Total Target Question Count: ${totalTargetCount}
+- Questions Asked: ${modelMessages.length}
+- Answers Provided: ${userMessages.length}
 
-JUDGING ENGINE SCORING RUBRICS:
-Align the scoring strictly against the requested difficulty (${sessionContext.difficulty}).
+CRITICAL SCORING & INTEGRITY RULES:
+1. PENALTY FOR UNANSWERED / SKIPPED QUESTIONS:
+   - The candidate's target was ${totalTargetCount} questions. Any question that was not asked or not answered receives 0/100 points.
+   - If the candidate answered only 1 out of 5 questions with an 80/100 answer, the overall technical score MUST be prorated: (80 + 0 + 0 + 0 + 0) / 5 = 16%.
+2. NON-ANSWERS & GIBBERISH:
+   - Phrases like "I don't know", "skip", "no idea", "bhul gaya", or irrelevant one-liners MUST receive 0 to 5 points.
+   - Do NOT give points for merely typing or speaking without technical accuracy.
+3. HARSH REALISTIC SCORING:
+   - 0 - 20: Completely unattempted, wrong, or unresponsive.
+   - 21 - 45: Superficial buzzwords, inaccurate definitions, or unable to explain basic principles.
+   - 46 - 65: Basic textbook definition, but lacks practical depth, failure modes, or real engineering trade-offs.
+   - 66 - 80: Solid mid-level explanation with correct concepts and understanding of trade-offs.
+   - 81 - 100: Exceptional Senior/Staff level depth: covers architecture, latency, concurrency, edge cases, and scalability.
+4. HONEST CRITIQUE:
+   - If performance was poor, weaknesses MUST highlight the exact missing technical concepts.
+   - DO NOT invent fake strengths like "Showed consistent engagement" if the candidate didn't answer all questions.
 
-1. TECHNICAL ACCURACY (70% Weight of Overall Score):
-- 0 to 40 points: Unresponsive, incorrect concepts, or major misconceptions.
-- 41 to 70 points: Textbook definition, but lacks architectural depth or real-world details.
-- 71 to 85 points: Correct concepts with solid understanding of mechanics and implementation.
-- 86 to 100 points: Masterful technical explanation addressing read/write trade-offs, scaling limits, data consistency models, and alternative design options.
-
-2. COMMUNICATION & PACING (30% Weight of Overall Score):
-- 0 to 50 points: Muddled explanations, high volume of fillers, or disjointed structures.
-- 51 to 79 points: Clear voice pacing, but lacks a concise thesis or fails to structure behavioral answers using the STAR format.
-- 80 to 100 points: Articulate, concise, structured explanations that address questions directly with appropriate STAR components.
-
-3. STAR METHOD AUDITING (Behavioral Questions only):
-For any behavioral scenario, audit if they stated:
-- Situation (context)
-- Task (objectives)
-- Action (steps they took)
-- Result (outcomes/metrics)
-
-You MUST output your response in JSON format matching the schema below. Do not wrap the JSON in markdown code blocks like \`\`\`json. Return only the raw JSON.
+You MUST output your response in JSON format matching the schema below. Do not wrap the JSON in markdown code blocks. Return only the raw JSON.
 
 JSON SCHEMA:
 {
-  "overallScore": 85, // Computed weighted average (70% techScore, 30% commScore)
-  "techScore": 88,    // Integer (0 to 100) based on Technical Accuracy rubric
-  "commScore": 82,    // Integer (0 to 100) based on Communication rubric
-  "summary": "A detailed 3-4 sentence paragraph summarizing the candidate's general performance, highlighting their technical capabilities and soft skills.",
+  "overallScore": <integer 0-100 calculated strictly as 0.7 * techScore + 0.3 * commScore>,
+  "techScore": <integer 0-100 reflecting strict technical knowledge across all questions>,
+  "commScore": <integer 0-100 reflecting clarity, structure, and communication>,
+  "summary": "<Objective 2-3 sentence honest summary of candidate's actual performance>",
   "strengths": [
-    "Brief description of strength 1",
-    "Brief description of strength 2"
+    "<Actual specific strength demonstrated, or 'None demonstrated' if poor/unanswered>"
   ],
   "weaknesses": [
-    "Brief description of area to improve 1",
-    "Brief description of area to improve 2"
+    "<Specific technical gap 1>",
+    "<Specific technical gap 2>"
   ],
   "questions": [
     {
-      "question": "The question asked by the interviewer",
-      "candidateAnswer": "What the candidate answered",
-      "idealAnswer": "A concise, highly professional example of an ideal answer (1-2 sentences)",
-      "techEvaluation": "A constructive 1-sentence critique of their technical accuracy based on the rubric",
-      "commEvaluation": "A constructive 1-sentence critique of their pacing, grammar, or phrasing",
+      "question": "<Question text>",
+      "candidateAnswer": "<What the candidate answered, or 'No response'>",
+      "idealAnswer": "<What an expert response should cover>",
+      "techEvaluation": "<Honest technical critique of this answer>",
+      "commEvaluation": "<Honest delivery and structure critique>",
       "starCheck": {
-        "applicable": true, // false if question was not behavioral
-        "situation": true,  // true if they stated the context/situation
-        "task": true,       // true if they stated the objectives/tasks
-        "action": true,     // true if they detailed their actions
-        "result": false     // true if they explained the outcome/results
+        "applicable": false,
+        "situation": false,
+        "task": false,
+        "action": false,
+        "result": false
       }
     }
   ],
   "studyTopics": [
     {
-      "topic": "Name of topic (e.g. SQL Indexes, Database Sharding, STAR Method)",
-      "description": "Why they need to study this based on their gaps",
-      "link": "A high-quality educational URL or Google Search query URL for this topic"
+      "topic": "<Specific topic to study>",
+      "description": "<Why they need to study this based on their gaps>",
+      "link": "<Educational search link>"
     }
   ]
 }`;
@@ -375,8 +425,8 @@ JSON SCHEMA:
     ],
     generationConfig: {
       responseMimeType: "application/json",
-      temperature: 0.2,
-      maxOutputTokens: 2000,
+      temperature: 0.1,
+      maxOutputTokens: 2500,
     }
   };
 
@@ -399,131 +449,121 @@ JSON SCHEMA:
       console.error("Cleanup parsing failed as well:", cleanupErr);
     }
 
-    // Return structured default fallback grade report to ensure UX is clean
+    // Mathematical fallback grade calculation when AI response is unavailable
     const totalCount = sessionContext.questionCount || 5;
-    
-    // Build a dynamic evaluation from history
     let techScoresList = [];
     let commScoresList = [];
     let fillerWordsTotal = 0;
     
-    const evaluationQuestions = chatHistory
-      .filter(m => m.role === "model")
-      .map((m, idx) => {
-        const questionText = m.parts?.[0]?.text || `Question ${idx + 1}`;
-        const uAns = chatHistory.find((uh, uIdx) => uIdx > chatHistory.indexOf(m) && uh.role === "user");
-        const answerText = uAns?.parts?.[0]?.text || "";
-        const cleanAnswer = answerText.trim();
-        
-        // Count filler words
-        const fillerWordsRegex = /\b(um|uh|like|basically|actually|so|literally|you know)\b/gi;
-        const fillerCount = (cleanAnswer.match(fillerWordsRegex) || []).length;
-        fillerWordsTotal += fillerCount;
-        
-        // Calculate Technical score for this answer
-        let qTechScore = 10;
-        if (cleanAnswer.length >= 150) {
-          qTechScore = 88;
-        } else if (cleanAnswer.length >= 50) {
+    const evaluationQuestions = modelMessages.map((m, idx) => {
+      const questionText = m.parts?.[0]?.text || `Question ${idx + 1}`;
+      const uAns = userMessages[idx];
+      const answerText = uAns?.parts?.[0]?.text || "";
+      const cleanAnswer = answerText.trim();
+      const lowerAns = cleanAnswer.toLowerCase();
+      
+      const isNonAnswer = !cleanAnswer || cleanAnswer.length < 15 || 
+        nonAnswerKeywords.some(kw => lowerAns.includes(kw) && cleanAnswer.length < 40);
+
+      // Filler words
+      const fillerWordsRegex = /\b(um|uh|like|basically|actually|so|literally|you know)\b/gi;
+      const fillerCount = (cleanAnswer.match(fillerWordsRegex) || []).length;
+      fillerWordsTotal += fillerCount;
+      
+      let qTechScore = 0;
+      let qCommScore = 0;
+
+      if (!isNonAnswer) {
+        if (cleanAnswer.length >= 250) {
           qTechScore = 75;
-        } else if (cleanAnswer.length > 5) {
-          qTechScore = 55;
-        }
-        techScoresList.push(qTechScore);
-        
-        // Calculate Communication score for this answer
-        let qCommScore = Math.max(40, 85 - (fillerCount * 5));
-        if (cleanAnswer.length < 15) {
+          qCommScore = Math.max(30, 80 - (fillerCount * 5));
+        } else if (cleanAnswer.length >= 100) {
+          qTechScore = 60;
+          qCommScore = Math.max(30, 70 - (fillerCount * 5));
+        } else {
+          qTechScore = 40;
           qCommScore = 50;
         }
-        commScoresList.push(qCommScore);
-        
-        // Check if question is behavioral
-        const lowerQ = questionText.toLowerCase();
-        const isBehavioral = lowerQ.includes("tell me about") || 
-                             lowerQ.includes("describe a time") || 
-                             lowerQ.includes("describe a situation") ||
-                             lowerQ.includes("star method") || 
-                             lowerQ.includes("behavioral") ||
-                             sessionContext.topics.some(t => t.toLowerCase().includes("behavioral"));
-                             
-        let starCheck = {
-          applicable: isBehavioral,
-          situation: false,
-          task: false,
-          action: false,
-          result: false
-        };
-        
-        if (isBehavioral && cleanAnswer) {
-          const lowerAns = cleanAnswer.toLowerCase();
-          starCheck.situation = lowerAns.includes("situation") || lowerAns.includes("context") || lowerAns.includes("project") || lowerAns.includes("client") || lowerAns.includes("team") || lowerAns.includes("role") || lowerAns.includes("when i was");
-          starCheck.task = lowerAns.includes("task") || lowerAns.includes("goal") || lowerAns.includes("objective") || lowerAns.includes("responsibility") || lowerAns.includes("challenge") || lowerAns.includes("issue");
-          starCheck.action = lowerAns.includes("action") || lowerAns.includes("did") || lowerAns.includes("wrote") || lowerAns.includes("built") || lowerAns.includes("solved") || lowerAns.includes("implemented") || lowerAns.includes("designed") || lowerAns.includes("created");
-          starCheck.result = lowerAns.includes("result") || lowerAns.includes("outcome") || lowerAns.includes("metrics") || lowerAns.includes("percent") || lowerAns.includes("%") || lowerAns.includes("saved") || lowerAns.includes("improved") || lowerAns.includes("reduced");
-        }
-        
-        return {
-          question: questionText,
-          candidateAnswer: cleanAnswer || "No response recorded.",
-          idealAnswer: `An ideal response should address the specifics of the prompt, outlining system trade-offs (e.g. read/write ratio, availability) and presenting clear metrics.`,
-          techEvaluation: cleanAnswer.length > 5 
-            ? `The candidate provides a response addressing the question, but could deepen the details regarding performance characteristics.`
-            : `No substantive technical response was recorded for this question.`,
-          commEvaluation: fillerCount > 1 
-            ? `Delivery pacing was slightly disrupted by the usage of ${fillerCount} filler words.`
-            : `Clear and concise delivery.`,
-          starCheck
-        };
-      });
+      }
       
-    const avgTech = techScoresList.length ? Math.round(techScoresList.reduce((a, b) => a + b, 0) / techScoresList.length) : 75;
-    const avgComm = commScoresList.length ? Math.round(commScoresList.reduce((a, b) => a + b, 0) / commScoresList.length) : 75;
+      techScoresList.push(qTechScore);
+      commScoresList.push(qCommScore);
+      
+      const lowerQ = questionText.toLowerCase();
+      const isBehavioral = lowerQ.includes("tell me about") || 
+                           lowerQ.includes("describe a time") || 
+                           lowerQ.includes("describe a situation") ||
+                           lowerQ.includes("star method") || 
+                           lowerQ.includes("behavioral") ||
+                           sessionContext.topics.some(t => t.toLowerCase().includes("behavioral"));
+                           
+      let starCheck = {
+        applicable: isBehavioral,
+        situation: isBehavioral && cleanAnswer.length > 20,
+        task: isBehavioral && cleanAnswer.length > 50,
+        action: isBehavioral && cleanAnswer.length > 100,
+        result: isBehavioral && (lowerAns.includes("result") || lowerAns.includes("outcome") || lowerAns.includes("%") || lowerAns.includes("metric"))
+      };
+      
+      return {
+        question: questionText,
+        candidateAnswer: cleanAnswer || "No response recorded.",
+        idealAnswer: `An expert response covers architecture, trade-offs, scalability limits, and clear engineering metrics.`,
+        techEvaluation: isNonAnswer 
+          ? "Unanswered or non-substantive. 0/100 points."
+          : `Candidate provided a partial response (${cleanAnswer.length} chars), but lacked architectural depth and trade-off considerations.`,
+        commEvaluation: isNonAnswer 
+          ? "No technical communication provided."
+          : (fillerCount > 1 ? `Delivery pacing was disrupted by ${fillerCount} filler words.` : `Basic delivery.`),
+        starCheck
+      };
+    });
+    
+    // Penalize for unasked/unanswered questions up to totalCount
+    while (techScoresList.length < totalCount) {
+      techScoresList.push(0);
+      commScoresList.push(0);
+    }
+
+    const avgTech = Math.round(techScoresList.reduce((a, b) => a + b, 0) / totalCount);
+    const avgComm = Math.round(commScoresList.reduce((a, b) => a + b, 0) / totalCount);
     const overall = Math.round(0.7 * avgTech + 0.3 * avgComm);
     
-    // Strengths and Weaknesses
-    let strengths = ["Showed consistent engagement and answered all prompted questions."];
+    let strengths = [];
     let weaknesses = [];
     
-    if (avgComm >= 80) {
-      strengths.push("Articulate delivery with structured, professional pacing.");
-    } else if (fillerWordsTotal > 2) {
-      weaknesses.push("Delivery pacing was affected by frequent filler words (ums, like, basically).");
-    }
-    
-    if (avgTech < 75) {
-      weaknesses.push("Technical explanations lacked architectural depth and trade-off considerations.");
-    } else {
+    if (avgTech >= 70) {
       strengths.push("Demonstrated solid understanding of technical principles and mechanics.");
+    } else {
+      weaknesses.push("Technical explanations lacked required depth, architecture trade-offs, and scaling limits.");
     }
-    
-    // Check if STAR criteria missed
-    const behavioralEvaluations = evaluationQuestions.filter(q => q.starCheck.applicable);
-    if (behavioralEvaluations.length > 0) {
-      const missedResult = behavioralEvaluations.some(q => !q.starCheck.result);
-      if (missedResult) {
-        weaknesses.push("Behavioral responses did not consistently include concrete metrics or outcomes (Result of the STAR method).");
-      } else {
-        strengths.push("Effectively applied the STAR methodology to behavioral questions.");
-      }
+
+    if (avgComm >= 70) {
+      strengths.push("Articulate delivery with structured pacing.");
+    } else {
+      weaknesses.push("Communication was incomplete, brief, or lacked structured delivery.");
     }
-    
-    if (weaknesses.length === 0) {
-      weaknesses.push("Could expand on alternative design options and scaling bottlenecks.");
+
+    if (techScoresList.filter(s => s === 0).length > 0) {
+      weaknesses.push(`Candidate left ${techScoresList.filter(s => s === 0).length} out of ${totalCount} questions unanswered.`);
+    }
+
+    if (strengths.length === 0) {
+      strengths.push("Attempted the interview questions.");
     }
 
     return {
       overallScore: overall,
       techScore: avgTech,
       commScore: avgComm,
-      summary: `Completed mock interview session on: ${sessionContext.topics.join(", ")}. The candidate demonstrated a ${avgTech >= 78 ? "strong" : "basic"} technical baseline with ${avgComm >= 78 ? "very clean" : "adequate"} communication pacing. Further focus on architectural scaling trade-offs is recommended.`,
+      summary: `Completed mock interview session on: ${sessionContext.topics.join(", ")}. Answered ${validAnswers.length} of ${totalCount} questions. The candidate demonstrated a ${avgTech >= 70 ? "satisfactory" : "deficient"} technical baseline. Significant preparation in core systems trade-offs is required.`,
       strengths,
       weaknesses,
       questions: evaluationQuestions,
-      studyTopics: sessionContext.topics.map(topic => ({
-        topic: topic,
-        description: `Review fundamental engineering concepts, trade-offs, and best practices in: ${topic}`,
-        link: `https://www.google.com/search?q=${encodeURIComponent(topic + " interview questions")}`
+      studyTopics: sessionContext.topics.map(t => ({
+        topic: t,
+        description: `Key technical area requiring deeper study and practice.`,
+        link: `https://www.google.com/search?q=${encodeURIComponent(t + " interview questions and trade-offs")}`
       }))
     };
   }
