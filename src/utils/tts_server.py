@@ -101,10 +101,10 @@ def tts_edge():
     if request.method == "POST":
         data = request.json or {}
         text = data.get("text", "")
-        voice = data.get("voice", "en-GB-SoniaNeural")
+        voice = data.get("voice", "en-GB-RyanNeural")
     else:
         text = request.args.get("text", "")
-        voice = request.args.get("voice", "en-GB-SoniaNeural")
+        voice = request.args.get("voice", "en-GB-RyanNeural")
 
     if not text.strip():
         return jsonify({"error": "No text provided"}), 400

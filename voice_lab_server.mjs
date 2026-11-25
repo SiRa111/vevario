@@ -13,7 +13,7 @@ const VOICE_DESCRIPTIONS = {
   'en-US-AndrewMultilingualNeural': { role: 'Authoritative, resonant, crisp male voice', tag: 'Popular' },
   'en-US-AvaMultilingualNeural': { role: 'Modern, crisp, articulate female voice', tag: 'Popular' },
   'en-US-BrianMultilingualNeural': { role: 'Thoughtful, calm, professional tone', tag: 'Popular' },
-  'en-GB-RyanNeural': { role: 'Polished British male accent, formal and direct', tag: 'UK Top Pick' },
+  'en-GB-RyanNeural': { role: 'Polished British male accent, crisp, articulate, and direct — Active Default', tag: 'Default Human Pick 🌟' },
   'en-GB-SoniaNeural': { role: 'Academic British female accent, crisp articulation', tag: 'UK Top Pick' },
   'en-GB-ThomasNeural': { role: 'Classic British male narrator tone', tag: 'UK Natural' },
   'en-GB-LibbyNeural': { role: 'Gentle, clear British female voice', tag: 'UK Natural' },
@@ -45,10 +45,12 @@ async function getEnglishVoices() {
     };
   });
 
-  // Sort top picks first
+  // Sort default and top picks first
   cachedVoices.sort((a, b) => {
-    const aTop = a.tag.includes('Top') ? -1 : 1;
-    const bTop = b.tag.includes('Top') ? -1 : 1;
+    if (a.name === 'en-GB-RyanNeural') return -1;
+    if (b.name === 'en-GB-RyanNeural') return 1;
+    const aTop = a.tag.includes('Top') || a.tag.includes('Default') ? -1 : 1;
+    const bTop = b.tag.includes('Top') || b.tag.includes('Default') ? -1 : 1;
     return aTop - bTop;
   });
 
@@ -217,8 +219,8 @@ const HTML_PAGE = `<!DOCTYPE html>
           <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20m-6-15v10m12-10v10m-18-5v0m24 0v0"/></svg>
         </div>
         <div class="overflow-hidden">
-          <div class="text-xs font-semibold text-white truncate" id="hud-voice-name">Jenny (en-US-JennyNeural)</div>
-          <div class="text-[11px] text-blue-400 font-mono" id="hud-status-msg">Streaming 24kHz neural audio...</div>
+          <div class="text-xs font-semibold text-white truncate" id="hud-voice-name">Ryan (en-GB-RyanNeural) [Default]</div>
+          <div class="text-[11px] text-blue-400 font-mono" id="hud-status-msg">Streaming 24kHz 96kbps ultra-crisp audio...</div>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -502,7 +504,7 @@ const server = http.createServer(async (req, res) => {
   // 3. API: Speak text and stream MP3 audio
   if (pathname === '/api/speak' || pathname === '/api/tts') {
     const query = parsedUrl.query;
-    let voice = query.voice || 'en-US-JennyNeural';
+    let voice = query.voice || 'en-GB-RyanNeural';
     let text = query.text || 'Hello, I am your technical interviewer.';
     let rate = query.rate || '+0%';
     let pitch = query.pitch || '+0Hz';
@@ -536,7 +538,7 @@ const server = http.createServer(async (req, res) => {
 function handleTTSStream(voice, text, rate, pitch, res) {
   try {
     const tts = new MsEdgeTTS();
-    tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3)
+    tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3)
       .then(() => {
         const { audioStream } = tts.toStream(text, { rate, pitch });
         res.writeHead(200, {

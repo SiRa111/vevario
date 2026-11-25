@@ -223,14 +223,14 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
                 </div>
               </div>
               <select id="select-voice" class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink focus:outline-none transition-all cursor-pointer">
-                <option value="en-US-JennyNeural" class="bg-[#0f172a]" selected>Jenny (US Female - Warm & Human) 🌟</option>
-                <option value="en-US-GuyNeural" class="bg-[#0f172a]">Guy (US Male - Natural & Confident) 🌟</option>
+                <option value="en-GB-RyanNeural" class="bg-[#0f172a]" selected>Ryan (UK Male - Crisp British) 🌟 [Default]</option>
+                <option value="en-GB-SoniaNeural" class="bg-[#0f172a]">Sonia (UK Female - Academic British)</option>
+                <option value="en-US-JennyNeural" class="bg-[#0f172a]">Jenny (US Female - Warm & Human)</option>
+                <option value="en-US-GuyNeural" class="bg-[#0f172a]">Guy (US Male - Natural & Confident)</option>
                 <option value="en-US-AriaNeural" class="bg-[#0f172a]">Aria (US Female - Expressive & Clear)</option>
                 <option value="en-US-ChristopherNeural" class="bg-[#0f172a]">Christopher (US Male - Articulate)</option>
                 <option value="en-US-AndrewMultilingualNeural" class="bg-[#0f172a]">Andrew (US Male - Authoritative)</option>
                 <option value="en-US-BrianMultilingualNeural" class="bg-[#0f172a]">Brian (US Male - Calm & Thoughtful)</option>
-                <option value="en-GB-RyanNeural" class="bg-[#0f172a]">Ryan (UK Male - Polished British)</option>
-                <option value="en-GB-SoniaNeural" class="bg-[#0f172a]">Sonia (UK Female - Crisp British)</option>
                 <option value="en-IN-NeerjaNeural" class="bg-[#0f172a]">Neerja (India Female - Expressive)</option>
                 <option value="en-IN-PrabhatNeural" class="bg-[#0f172a]">Prabhat (India Male - Professional)</option>
               </select>
@@ -659,7 +659,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
   let selectedTopics = [];
   let difficulty = 'Mid-Level (Medium)';
   let questionCount = 5;
-  let voiceName = '';
+  let voiceName = 'en-GB-RyanNeural';
   let isMuted = true;
   let micEnabled = true;
   let isTypingMode = false;
@@ -903,8 +903,10 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     if (savedVoice) {
       voiceName = savedVoice;
       if (selectVoice) selectVoice.value = savedVoice;
-    } else if (selectVoice) {
-      voiceName = selectVoice.value;
+    } else {
+      voiceName = 'en-GB-RyanNeural';
+      if (selectVoice) selectVoice.value = 'en-GB-RyanNeural';
+      localStorage.setItem('selected_voice', 'en-GB-RyanNeural');
     }
 
     if (selectVoice) {
@@ -1807,63 +1809,70 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       cleanText = "I have displayed the coding challenge on the left. Please review the problem description and write your solution in the editor on the right. You can ask me clarifying questions or request hints by using the microphone button at the bottom.";
     }
 
-    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'en-US-JennyNeural'));
+    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'en-GB-RyanNeural'));
     const edgeVoice = EDGE_VOICE_MAP[currentVoiceChoice.toLowerCase()] || currentVoiceChoice;
 
-    // Attempt local ultra-realistic Node.js Edge Neural server (port 4455) first
+    // Attempt ultra-realistic Node.js Edge Neural server (Voice Lab port 4455 or internal /api/speak)
     let playedViaBackend = false;
-    try {
-      const voiceLabUrl = `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(edgeVoice)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      const headCheck = await fetch(voiceLabUrl, { method: "HEAD", signal: controller.signal });
-      clearTimeout(timeoutId);
+    const voiceEndpoints = [
+      `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(edgeVoice)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`,
+      `/api/speak?voice=${encodeURIComponent(edgeVoice)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`
+    ];
 
-      if (headCheck.ok) {
-        sharedAudioPlayer.src = voiceLabUrl;
-        activeAudioElement = sharedAudioPlayer;
+    for (const voiceLabUrl of voiceEndpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const headCheck = await fetch(voiceLabUrl, { method: "HEAD", signal: controller.signal });
+        clearTimeout(timeoutId);
 
-        sharedAudioPlayer.onplay = () => {
-          isSpeakingBot = true;
-          if (recognition && !isMuted) {
-            try { recognition.stop(); } catch(e) {}
-          }
-          if (mediaRecorder && mediaRecorder.state === 'recording') {
-            try { mediaRecorder.pause(); } catch(e) {}
-          }
-          setOrbState('speaking');
-          renderChatHistory();
+        if (headCheck.ok) {
+          sharedAudioPlayer.src = voiceLabUrl;
+          activeAudioElement = sharedAudioPlayer;
 
-          const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
-          startTypewriter(cleanText, duration);
-        };
+          sharedAudioPlayer.onplay = () => {
+            isSpeakingBot = true;
+            if (recognition && !isMuted) {
+              try { recognition.stop(); } catch(e) {}
+            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              try { mediaRecorder.pause(); } catch(e) {}
+            }
+            setOrbState('speaking');
+            renderChatHistory();
 
-        sharedAudioPlayer.onended = () => {
-          isSpeakingBot = false;
-          activeAudioElement = null;
-          stopTypewriter();
-          stopWordByWordRendering();
-          if (isCodingMode && codingHintToast) {
-            codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
-            setTimeout(() => {
-              if (!isSpeakingBot) hideCodingHintToast();
-            }, 6000);
-          } else {
-            const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
-            if (targetEl) targetEl.textContent = cleanText;
-          }
-          onSpeechPlaybackEnd();
-        };
+            const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
+            startTypewriter(cleanText, duration);
+          };
 
-        sharedAudioPlayer.onerror = () => {
-          speakBrowserFallback(cleanText);
-        };
+          sharedAudioPlayer.onended = () => {
+            isSpeakingBot = false;
+            activeAudioElement = null;
+            stopTypewriter();
+            stopWordByWordRendering();
+            if (isCodingMode && codingHintToast) {
+              codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
+              setTimeout(() => {
+                if (!isSpeakingBot) hideCodingHintToast();
+              }, 6000);
+            } else {
+              const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+              if (targetEl) targetEl.textContent = cleanText;
+            }
+            onSpeechPlaybackEnd();
+          };
 
-        await sharedAudioPlayer.play();
-        playedViaBackend = true;
+          sharedAudioPlayer.onerror = () => {
+            speakBrowserFallback(cleanText);
+          };
+
+          await sharedAudioPlayer.play();
+          playedViaBackend = true;
+          break;
+        }
+      } catch (e) {
+        // try next endpoint
       }
-    } catch (e) {
-      playedViaBackend = false;
     }
 
     if (!playedViaBackend) {
@@ -1881,22 +1890,15 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     const voices = window.speechSynthesis.getVoices();
     let selectedVoice: SpeechSynthesisVoice | null = null;
 
-    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'andrew')).toLowerCase();
+    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'en-GB-RyanNeural')).toLowerCase();
 
     // 1. Exact or partial direct match
     selectedVoice = voices.find(v => v.name.toLowerCase().includes(currentVoiceChoice)) || null;
 
     // 2. Calibrated Gender & Accent matching
     if (!selectedVoice) {
-      if (currentVoiceChoice.includes('andrew') || currentVoiceChoice.includes('brian')) {
-        // Natural American Male voice
-        selectedVoice = voices.find(v => {
-          const n = v.name.toLowerCase();
-          const l = (v.lang || '').toLowerCase();
-          return l.startsWith('en') && (n.includes('andrew') || n.includes('brian') || n.includes('david') || n.includes('mark') || n.includes('male') || n.includes('guy')) && !n.includes('female');
-        }) || null;
-      } else if (currentVoiceChoice.includes('ryan')) {
-        // Natural British Male voice
+      if (currentVoiceChoice.includes('ryan') || currentVoiceChoice.includes('uk') || currentVoiceChoice.includes('gb')) {
+        // Natural British Male voice (Ryan)
         selectedVoice = voices.find(v => {
           const n = v.name.toLowerCase();
           const l = (v.lang || '').toLowerCase();
@@ -1904,8 +1906,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
         }) || voices.find(v => {
           const n = v.name.toLowerCase();
           const l = (v.lang || '').toLowerCase();
-          return l.startsWith('en') && (n.includes('male') || n.includes('david')) && !n.includes('female');
+          return l.startsWith('en') && (n.includes('ryan') || n.includes('male') || n.includes('david')) && !n.includes('female');
         }) || null;
+      } else if (currentVoiceChoice.includes('andrew') || currentVoiceChoice.includes('brian')) {
       } else if (currentVoiceChoice.includes('sonia')) {
         // Natural British Female voice
         selectedVoice = voices.find(v => {
