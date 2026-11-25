@@ -1745,56 +1745,64 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     }
     setOrbState('speaking');
 
-    // Attempt ultra-realistic Node.js Edge Neural server (Voice Lab port 4455 or internal /api/speak)
+    // Attempt ultra-realistic Node.js Edge Neural server (/api/speak or local port 4455)
     const voiceEndpoints = [
-      `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`,
-      `/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`
+      `/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`,
+      `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`
     ];
 
     let playedViaBackend = false;
 
     for (const voiceLabUrl of voiceEndpoints) {
+      let resp = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          resp = await fetch(voiceLabUrl);
+          if (resp && resp.ok) break;
+        } catch (e) {
+          if (attempt === 0) await new Promise(r => setTimeout(r, 200));
+        }
+      }
+      if (!resp || !resp.ok) continue;
+
       try {
         // Method 1: Web Audio API (bypasses browser autoplay locks across subsequent questions)
         unlockAudioContextAndPlayer();
         if (audioContext) {
-          const resp = await fetch(voiceLabUrl);
-          if (resp.ok) {
-            const arrayBuffer = await resp.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          const arrayBuffer = await resp.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-            await new Promise<void>((resolve) => {
-              const source = audioContext.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(audioContext.destination);
-              activeSourceNode = source;
+          await new Promise<void>((resolve) => {
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            activeSourceNode = source;
 
-              source.onended = () => {
-                activeSourceNode = null;
-                isSpeakingBot = false;
-                const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
-                if (targetEl) targetEl.textContent = cleanText;
-                onSpeechPlaybackEnd();
-              };
+            source.onended = () => {
+              activeSourceNode = null;
+              isSpeakingBot = false;
+              const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+              if (targetEl) targetEl.textContent = cleanText;
+              onSpeechPlaybackEnd();
+            };
 
-              source.start(0);
+            source.start(0);
 
-              isSpeakingBot = true;
-              if (recognition && !isMuted) {
-                try { recognition.stop(); } catch(e) {}
-              }
-              if (mediaRecorder && mediaRecorder.state === 'recording') {
-                try { mediaRecorder.pause(); } catch(e) {}
-              }
-              setOrbState('speaking');
-              renderChatHistory();
+            isSpeakingBot = true;
+            if (recognition && !isMuted) {
+              try { recognition.stop(); } catch(e) {}
+            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              try { mediaRecorder.pause(); } catch(e) {}
+            }
+            setOrbState('speaking');
+            renderChatHistory();
 
-              resolve();
-            });
+            resolve();
+          });
 
-            playedViaBackend = true;
-            break;
-          }
+          playedViaBackend = true;
+          break;
         }
       } catch (err) {
         console.warn("WebAudio primary playback failed, trying HTML5 Audio fallback:", err);
@@ -1884,52 +1892,16 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     const voices = window.speechSynthesis.getVoices();
     let selectedVoice: SpeechSynthesisVoice | null = null;
 
-    const currentVoiceChoice = (selectVoice ? selectVoice.value : (voiceName || 'en-GB-RyanNeural')).toLowerCase();
+    // Prioritize British Natural / Ryan voice
+    selectedVoice = voices.find(v => {
+      const n = v.name.toLowerCase();
+      return n.includes('ryan') || (n.includes('online') && (n.includes('united kingdom') || n.includes('uk')));
+    }) || voices.find(v => {
+      const n = v.name.toLowerCase();
+      const l = (v.lang || '').toLowerCase();
+      return (l.includes('gb') || l.includes('uk')) && !n.includes('female');
+    }) || voices.find(v => (v.lang || '').toLowerCase().includes('gb')) || null;
 
-    // 1. Exact or partial direct match
-    selectedVoice = voices.find(v => v.name.toLowerCase().includes(currentVoiceChoice)) || null;
-
-    // 2. Calibrated Gender & Accent matching
-    if (!selectedVoice) {
-      if (currentVoiceChoice.includes('ryan') || currentVoiceChoice.includes('uk') || currentVoiceChoice.includes('gb')) {
-        // Natural British Male voice (Ryan)
-        selectedVoice = voices.find(v => {
-          const n = v.name.toLowerCase();
-          const l = (v.lang || '').toLowerCase();
-          return (l.includes('gb') || l.includes('uk')) && (n.includes('ryan') || n.includes('george') || n.includes('oliver') || n.includes('male')) && !n.includes('female');
-        }) || voices.find(v => {
-          const n = v.name.toLowerCase();
-          const l = (v.lang || '').toLowerCase();
-          return l.startsWith('en') && (n.includes('ryan') || n.includes('male') || n.includes('david')) && !n.includes('female');
-        }) || null;
-      } else if (currentVoiceChoice.includes('andrew') || currentVoiceChoice.includes('brian')) {
-      } else if (currentVoiceChoice.includes('sonia')) {
-        // Natural British Female voice
-        selectedVoice = voices.find(v => {
-          const n = v.name.toLowerCase();
-          const l = (v.lang || '').toLowerCase();
-          return (l.includes('gb') || l.includes('uk')) && (n.includes('sonia') || n.includes('libby') || n.includes('mia') || n.includes('hazel') || n.includes('female'));
-        }) || voices.find(v => v.name.toLowerCase().includes('google uk english female')) || null;
-      } else if (currentVoiceChoice.includes('ava') || currentVoiceChoice.includes('emma')) {
-        // Natural American Female voice
-        selectedVoice = voices.find(v => {
-          const n = v.name.toLowerCase();
-          const l = (v.lang || '').toLowerCase();
-          return (l.includes('us') || l.startsWith('en')) && (n.includes('ava') || n.includes('emma') || n.includes('jenny') || n.includes('aria') || n.includes('zira') || n.includes('samantha')) && !n.includes('male');
-        }) || voices.find(v => v.name.toLowerCase().includes('google us english') && !v.name.toLowerCase().includes('male')) || null;
-      }
-    }
-
-    // 3. Fallback to any natural/neural English voice
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => {
-        const n = v.name.toLowerCase();
-        const l = (v.lang || '').toLowerCase();
-        return l.startsWith('en') && (n.includes('natural') || n.includes('neural') || n.includes('online') || n.includes('google'));
-      }) || null;
-    }
-
-    // 4. Ultimate fallback to any English voice
     if (!selectedVoice) {
       selectedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) || voices[0] || null;
     }

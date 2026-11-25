@@ -546,44 +546,57 @@ const server = http.createServer(async (req, res) => {
   res.end('Not Found');
 });
 
-function handleTTSStream(voice, text, rate, pitch, res) {
-  try {
-    const tts = new MsEdgeTTS();
-    tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3)
-      .then(() => {
-        const { audioStream } = tts.toStream(text, { rate, pitch });
-        res.writeHead(200, {
-          'Content-Type': 'audio/mpeg',
-          'Cache-Control': 'no-cache',
-          'Transfer-Encoding': 'chunked',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
-        });
-        audioStream.pipe(res);
-        audioStream.on('error', (err) => {
-          console.error('Audio stream error:', err);
-          if (!res.headersSent) {
-            res.writeHead(500);
-            res.end();
-          }
-        });
-        audioStream.on('end', () => {
-          tts.close();
-        });
-      })
-      .catch((err) => {
-        console.error('TTS metadata error:', err);
+let activeTTSInstance = null;
+let activeVoiceSet = null;
+
+async function getOrInitTTS(voice = 'en-GB-RyanNeural') {
+  if (!activeTTSInstance || activeVoiceSet !== voice) {
+    if (activeTTSInstance) {
+      try { activeTTSInstance.close(); } catch(e) {}
+    }
+    activeTTSInstance = new MsEdgeTTS();
+    await activeTTSInstance.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+    activeVoiceSet = voice;
+  }
+  return activeTTSInstance;
+}
+
+async function handleTTSStream(voice, text, rate, pitch, res) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const tts = await getOrInitTTS(voice);
+      const { audioStream } = tts.toStream(text, { rate, pitch });
+      
+      res.writeHead(200, {
+        'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'no-cache',
+        'Transfer-Encoding': 'chunked',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
+      
+      audioStream.pipe(res);
+      audioStream.on('error', (err) => {
+        console.error(`Audio stream error on attempt ${attempt}:`, err);
+        activeTTSInstance = null;
+        if (!res.headersSent) {
+          res.writeHead(500);
+          res.end();
+        }
+      });
+      return;
+    } catch (err) {
+      console.warn(`TTS attempt ${attempt} failed:`, err);
+      activeTTSInstance = null;
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 250 * attempt));
+      } else {
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
         }
-      });
-  } catch (err) {
-    console.error('TTS execution error:', err);
-    if (!res.headersSent) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
+      }
     }
   }
 }
