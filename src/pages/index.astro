@@ -1817,12 +1817,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
               source.onended = () => {
                 activeSourceNode = null;
                 isSpeakingBot = false;
-                stopTypewriter();
-                stopWordByWordRendering();
                 const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
                 if (targetEl) targetEl.textContent = cleanText;
                 onSpeechPlaybackEnd();
-                resolve();
               };
 
               source.start(0);
@@ -1837,8 +1834,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
               setOrbState('speaking');
               renderChatHistory();
 
-              const duration = audioBuffer.duration || (cleanText.split(/\s+/).length * 60) / 140;
-              startTypewriter(cleanText, duration);
+              resolve();
             });
 
             playedViaBackend = true;
@@ -3139,10 +3135,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
       }
     } catch (error) {
       console.error(error);
-      if (isCodingMode) {
-        codingProblemBody.textContent = `Setup failed: ${error.message}. Double-check your API key and network connection.`;
-      } else {
-        questionText.textContent = `Setup failed: ${error.message}. Double-check your API key and network connection.`;
+      const container = document.getElementById('chat-history-container');
+      if (container) {
+        container.innerHTML = `<div class="flex justify-start w-full mb-4 animate-[fadeIn_0.3s_ease-out]"><div class="max-w-[85%] rounded-2xl rounded-tl-none px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-300 text-xs md:text-sm font-mono leading-relaxed shadow-sm">⚠️ Setup failed: ${error.message || 'Unknown error'}. Please verify your network and API key.</div></div>`;
       }
       setOrbState('idle');
     }
@@ -3268,7 +3263,7 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     stopTypewriter();
     stopWordByWordRendering();
     
-    // Clear user input card BEFORE rendering chat history so draft bubble doesn't get old text!
+    // Clear user input card BEFORE rendering chat history
     textareaAnswer.value = '';
     liveSubtitleBox.textContent = "Tap microphone or type to answer...";
     liveSubtitleBox.contentEditable = "false";
@@ -3277,7 +3272,16 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     isSpeakingBot = true;
     renderChatHistory();
 
-    // Speak aloud
+    let cleanText = questionRaw.replace(/Question \d+ of \d+:/gi, "").trim();
+    if (isCodingMode && (cleanText.includes('#') || cleanText.includes('Given') || cleanText.includes('nums') || cleanText.includes('solve('))) {
+      cleanText = "I have displayed the coding challenge on the left. Please review the problem description and write your solution in the editor on the right. You can ask me clarifying questions or request hints by using the microphone button at the bottom.";
+    }
+
+    // Immediately start typewriter so candidate sees the question appearing!
+    const estimatedDuration = (cleanText.split(/\s+/).length * 60) / 140;
+    startTypewriter(cleanText, estimatedDuration);
+
+    // Speak aloud in crisp neural voice
     speakQuestion(questionRaw);
 
     // Reset HUD metrics for the current question

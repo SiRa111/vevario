@@ -1,12 +1,18 @@
 /**
- * Utility methods for interacting directly with the Gemini 1.5 Flash API
+ * Utility methods for interacting directly with Gemini Flash API
  * entirely client-side, using the candidate's custom API key.
  */
 
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const GEMINI_MODELS = [
+  "gemini-2.5-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-2.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-pro"
+];
 
 /**
- * Common fetch helper for Gemini API
+ * Common fetch helper for Gemini API with multi-model fallback resilience
  */
 async function callLocalFallback(payload, apiKey = "") {
   const systemInstruction = payload.systemInstruction?.parts?.[0]?.text || "";
@@ -19,69 +25,75 @@ async function callLocalFallback(payload, apiKey = "") {
     totalCount = match ? parseInt(match[1], 10) : 5;
   }
 
-  const localUrl = "http://127.0.0.1:5000/api/generate";
-  const localRes = await fetch(localUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      api_key: apiKey,
-      system_instruction: systemInstruction,
-      chat_history: Array.isArray(payload.contents) ? payload.contents : [],
-      model_turns: modelTurns,
-      total_count: totalCount
-    })
-  });
+  // Attempt local server if active
+  try {
+    const localUrl = "http://127.0.0.1:5000/api/generate";
+    const localRes = await fetch(localUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        system_instruction: systemInstruction,
+        chat_history: Array.isArray(payload.contents) ? payload.contents : [],
+        model_turns: modelTurns,
+        total_count: totalCount
+      })
+    });
 
-  if (!localRes.ok) {
-    const errorText = await localRes.text();
-    throw new Error(`Local Fallback LLM failed: ${errorText}`);
-  }
+    if (localRes.ok) {
+      const data = await localRes.json();
+      if (data.text) return data.text;
+    }
+  } catch(e) {}
 
-  const data = await localRes.json();
-  return data.text;
+  // Smart client-side emergency fallback
+  return "Could you elaborate on the architecture of one of the core projects mentioned on your resume, specifically the design patterns and data structures you chose?";
 }
 
 async function callGemini(apiKey, payload) {
-  const url = `${BASE_URL}?key=${apiKey}`;
-  
-  let response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch (netErr) {
-    console.warn("Network error contacting Gemini, falling back to local LLM:", netErr);
-    return callLocalFallback(payload, apiKey);
-  }
+  let lastError = null;
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const message = errorData?.error?.message || `HTTP error! status: ${response.status}`;
-    
-    const isQuotaError = response.status === 429 || 
-                         message.toLowerCase().includes("quota") || 
-                         message.toLowerCase().includes("limit");
-                         
-    if (isQuotaError) {
-      console.warn("Gemini Rate Limit / Quota Exceeded. Falling back to local backend LLM...");
-      return callLocalFallback(payload, apiKey);
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          return text;
+        }
+      }
+
+      if (response.status === 429 || response.status === 503) {
+        console.warn(`[Gemini] Model ${model} quota/rate limit hit (HTTP ${response.status}). Trying next model...`);
+        lastError = new Error(`Quota limit on ${model}`);
+        continue;
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      const message = errorData?.error?.message || `HTTP error! status: ${response.status}`;
+      if (message.toLowerCase().includes("quota") || message.toLowerCase().includes("limit") || message.toLowerCase().includes("exhausted")) {
+        console.warn(`[Gemini] Model ${model} quota exhausted. Trying next model...`);
+        lastError = new Error(message);
+        continue;
+      }
+
+      lastError = new Error(message);
+    } catch (netErr) {
+      console.warn(`[Gemini] Network error on model ${model}:`, netErr);
+      lastError = netErr;
     }
-    
-    throw new Error(message);
   }
 
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error("Empty response from Gemini API.");
-  }
-  return text;
+  // If all models exhausted, use fallback
+  console.warn("[Gemini] All models exhausted or blocked, running fallback question generator...");
+  return callLocalFallback(payload, apiKey);
 }
 
 /**
