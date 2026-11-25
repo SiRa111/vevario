@@ -367,7 +367,6 @@ INTERVIEW META:
 - Total Target Question Count: ${totalTargetCount}
 - Questions Asked: ${modelQuestions.length}
 - Answers Provided: ${validAnswers.length}
-- Answers Provided: ${userMessages.length}
 
 CRITICAL SCORING & INTEGRITY RULES:
 1. PENALTY FOR UNANSWERED / SKIPPED QUESTIONS:
