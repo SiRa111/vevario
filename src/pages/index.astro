@@ -205,23 +205,6 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
                 <option value="25" class="bg-[#0f172a]">25 Questions</option>
               </select>
             </div>
-
-            <!-- Interviewer Voice (Locked to Ryan) -->
-            <div>
-              <div class="flex items-center justify-between mb-1.5">
-                <label class="block text-[10px] font-mono text-mute uppercase">
-                  Interviewer Voice
-                </label>
-                <span class="text-[9px] font-mono text-emerald-400">Locked</span>
-              </div>
-              <div class="glass-input glass-inset w-full px-3 py-2 text-xs font-mono text-ink flex items-center justify-between opacity-80 cursor-default select-none">
-                <span class="text-white font-medium flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                  Ryan (UK Male - Crisp British)
-                </span>
-                <span class="text-[9px] font-mono text-mute">Default Neural AI</span>
-              </div>
-            </div>
           </div>
 
           <!-- Premium CTA button for "INITIALIZE SESSION" -->
@@ -1761,25 +1744,28 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     emma: "en-US-EmmaMultilingualNeural"
   };
 
+  let activeSourceNode: AudioBufferSourceNode | null = null;
+
   function unlockAudioContextAndPlayer() {
     try {
-      sharedAudioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA";
-      sharedAudioPlayer.play().then(() => {
-        sharedAudioPlayer.pause();
-      }).catch(e => {
-        console.warn("Silent unlock play caught:", e);
-      });
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().catch(e => console.warn("Failed to resume audioContext:", e));
+      }
     } catch(e) {
-      console.warn("Silent unlock failed:", e);
-    }
-    if (audioContext && audioContext.state === 'suspended') {
-      audioContext.resume().catch(e => console.warn("Failed to resume audioContext:", e));
+      console.warn("AudioContext unlock failed:", e);
     }
   }
 
   async function speakQuestion(text: string) {
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
+    }
+    if (activeSourceNode) {
+      try { activeSourceNode.stop(); } catch(e) {}
+      activeSourceNode = null;
     }
     if (activeAudioElement) {
       activeAudioElement.pause();
@@ -1805,86 +1791,130 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
     setOrbState('speaking');
 
     // Attempt ultra-realistic Node.js Edge Neural server (Voice Lab port 4455 or internal /api/speak)
-    let playedViaBackend = false;
     const voiceEndpoints = [
       `http://127.0.0.1:4455/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`,
       `/api/speak?voice=${encodeURIComponent(ALWAYS_VOICE)}&text=${encodeURIComponent(cleanText)}&t=${Date.now()}`
     ];
 
+    let playedViaBackend = false;
+
     for (const voiceLabUrl of voiceEndpoints) {
       try {
-        const canPlay = await new Promise<boolean>((resolve) => {
-          sharedAudioPlayer.src = voiceLabUrl;
-          activeAudioElement = sharedAudioPlayer;
+        // Method 1: Web Audio API (bypasses browser autoplay locks across subsequent questions)
+        unlockAudioContextAndPlayer();
+        if (audioContext) {
+          const resp = await fetch(voiceLabUrl);
+          if (resp.ok) {
+            const arrayBuffer = await resp.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-          let resolved = false;
-          const playTimeout = setTimeout(() => {
-            if (!resolved) {
-              resolved = true;
-              resolve(false);
-            }
-          }, 6000);
+            await new Promise<void>((resolve) => {
+              const source = audioContext.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(audioContext.destination);
+              activeSourceNode = source;
 
-          sharedAudioPlayer.onplay = () => {
-            if (!resolved) {
-              resolved = true;
-              clearTimeout(playTimeout);
-              resolve(true);
-            }
-            isSpeakingBot = true;
-            if (recognition && !isMuted) {
-              try { recognition.stop(); } catch(e) {}
-            }
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-              try { mediaRecorder.pause(); } catch(e) {}
-            }
-            setOrbState('speaking');
-            renderChatHistory();
+              source.onended = () => {
+                activeSourceNode = null;
+                isSpeakingBot = false;
+                stopTypewriter();
+                stopWordByWordRendering();
+                const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
+                if (targetEl) targetEl.textContent = cleanText;
+                onSpeechPlaybackEnd();
+                resolve();
+              };
 
-            const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
-            startTypewriter(cleanText, duration);
-          };
+              source.start(0);
 
-          sharedAudioPlayer.onended = () => {
-            isSpeakingBot = false;
-            activeAudioElement = null;
-            stopTypewriter();
-            stopWordByWordRendering();
-            if (isCodingMode && codingHintToast) {
-              codingHintToast.innerHTML = `<strong>Interviewer:</strong> ${cleanText}`;
-              setTimeout(() => {
-                if (!isSpeakingBot) hideCodingHintToast();
-              }, 6000);
-            } else {
+              isSpeakingBot = true;
+              if (recognition && !isMuted) {
+                try { recognition.stop(); } catch(e) {}
+              }
+              if (mediaRecorder && mediaRecorder.state === 'recording') {
+                try { mediaRecorder.pause(); } catch(e) {}
+              }
+              setOrbState('speaking');
+              renderChatHistory();
+
+              const duration = audioBuffer.duration || (cleanText.split(/\s+/).length * 60) / 140;
+              startTypewriter(cleanText, duration);
+            });
+
+            playedViaBackend = true;
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn("WebAudio primary playback failed, trying HTML5 Audio fallback:", err);
+        // Method 2: HTML5 Audio fallback
+        try {
+          const canPlay = await new Promise<boolean>((resolve) => {
+            sharedAudioPlayer.src = voiceLabUrl;
+            activeAudioElement = sharedAudioPlayer;
+
+            let resolved = false;
+            const playTimeout = setTimeout(() => {
+              if (!resolved) {
+                resolved = true;
+                resolve(false);
+              }
+            }, 6000);
+
+            sharedAudioPlayer.onplay = () => {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(playTimeout);
+                resolve(true);
+              }
+              isSpeakingBot = true;
+              if (recognition && !isMuted) {
+                try { recognition.stop(); } catch(e) {}
+              }
+              if (mediaRecorder && mediaRecorder.state === 'recording') {
+                try { mediaRecorder.pause(); } catch(e) {}
+              }
+              setOrbState('speaking');
+              renderChatHistory();
+
+              const duration = sharedAudioPlayer.duration || (cleanText.split(/\s+/).length * 60) / 140;
+              startTypewriter(cleanText, duration);
+            };
+
+            sharedAudioPlayer.onended = () => {
+              isSpeakingBot = false;
+              activeAudioElement = null;
+              stopTypewriter();
+              stopWordByWordRendering();
               const targetEl = isCodingMode ? codingHintToast : (document.getElementById('active-question-bubble') || questionText);
               if (targetEl) targetEl.textContent = cleanText;
-            }
-            onSpeechPlaybackEnd();
-          };
+              onSpeechPlaybackEnd();
+            };
 
-          sharedAudioPlayer.onerror = () => {
-            if (!resolved) {
-              resolved = true;
-              clearTimeout(playTimeout);
-              resolve(false);
-            }
-          };
+            sharedAudioPlayer.onerror = () => {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(playTimeout);
+                resolve(false);
+              }
+            };
 
-          sharedAudioPlayer.play().catch(() => {
-            if (!resolved) {
-              resolved = true;
-              clearTimeout(playTimeout);
-              resolve(false);
-            }
+            sharedAudioPlayer.play().catch(() => {
+              if (!resolved) {
+                resolved = true;
+                clearTimeout(playTimeout);
+                resolve(false);
+              }
+            });
           });
-        });
 
-        if (canPlay) {
-          playedViaBackend = true;
-          break;
+          if (canPlay) {
+            playedViaBackend = true;
+            break;
+          }
+        } catch (e) {
+          // try next endpoint
         }
-      } catch (e) {
-        // try next endpoint
       }
     }
 
@@ -3145,7 +3175,8 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
         const qInner = document.createElement('div');
         qInner.className = "max-w-[85%] rounded-2xl rounded-tl-none px-4 py-2.5 bg-white/5 border border-white/10 text-ink/90 text-xs md:text-sm font-light leading-relaxed shadow-sm select-text";
         
-        if (i === questionsList.length - 1 && isSpeakingBot) {
+        const isAnswered = i < answersList.length;
+        if (i === questionsList.length - 1 && isSpeakingBot && !isAnswered) {
           qInner.id = "active-question-bubble";
           if (activeBubbleHTML) {
             qInner.innerHTML = activeBubbleHTML;
@@ -3261,9 +3292,22 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
 
   // --- SUBMIT ANSWER LOOP ---
   btnSubmitAnswer.addEventListener('click', async () => {
-    if (isSpeakingBot) return;
     btnSubmitAnswer.blur();
     unlockAudioContextAndPlayer();
+
+    // If bot was still speaking when candidate submitted, stop speech cleanly
+    if (activeSourceNode) {
+      try { activeSourceNode.stop(); } catch(e) {}
+      activeSourceNode = null;
+    }
+    if (activeAudioElement) {
+      activeAudioElement.pause();
+      activeAudioElement = null;
+    }
+    stopTypewriter();
+    stopWordByWordRendering();
+    isSpeakingBot = false;
+
     // If voice mode is active and we are currently recording/not muted
     if (!isTypingMode && !isMuted) {
       stopRecording();

@@ -555,7 +555,10 @@ function handleTTSStream(voice, text, rate, pitch, res) {
         res.writeHead(200, {
           'Content-Type': 'audio/mpeg',
           'Cache-Control': 'no-cache',
-          'Transfer-Encoding': 'chunked'
+          'Transfer-Encoding': 'chunked',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type'
         });
         audioStream.pipe(res);
         audioStream.on('error', (err) => {
