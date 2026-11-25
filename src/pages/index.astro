@@ -3449,7 +3449,9 @@ const publicElevenApiKey = import.meta.env.PUBLIC_ELEVENLABS_API_KEY || import.m
         resumeText,
         topics: selectedTopics,
         difficulty,
-        questionCount: questionsList.length
+        questionCount: questionCount || questionsList.length || 5,
+        questionsList,
+        answersList
       }, chatHistory);
 
       renderDashboard(evaluation);

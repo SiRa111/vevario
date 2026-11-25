@@ -293,9 +293,19 @@ Provide a very short, subtle, 1-sentence hint that guides them in the right dire
  * @returns {Promise<Object>} - Parsed JSON grade evaluation
  */
 export async function getFinalEvaluation(apiKey, sessionContext, chatHistory) {
-  const userMessages = (chatHistory || []).filter(m => m.role === "user");
-  const modelMessages = (chatHistory || []).filter(m => m.role === "model");
-  const totalTargetCount = sessionContext.questionCount || 5;
+  // Extract genuine candidate answers: prioritize clean answersList, otherwise filter out system prompts from chatHistory
+  const rawAnswers = (Array.isArray(sessionContext.answersList))
+    ? sessionContext.answersList
+    : (chatHistory || [])
+        .filter(m => m.role === "user")
+        .map(m => (m.parts?.[0]?.text || "").trim())
+        .filter(t => !t.startsWith("Let's begin the mock interview") && !t.startsWith("Candidate has submitted the following code"));
+
+  const modelQuestions = (Array.isArray(sessionContext.questionsList) && sessionContext.questionsList.length > 0)
+    ? sessionContext.questionsList
+    : (chatHistory || []).filter(m => m.role === "model").map(m => m.parts?.[0]?.text || "");
+
+  const totalTargetCount = sessionContext.questionCount || Math.max(modelQuestions.length, 5);
 
   // Filter for genuine, substantive answers (not "idk", "skip", "bhul gaya", or blanks)
   const nonAnswerKeywords = [
@@ -304,15 +314,14 @@ export async function getFinalEvaluation(apiKey, sessionContext, chatHistory) {
     "quit", "exit", "dunno", "nothing"
   ];
   
-  const validAnswers = userMessages.filter(m => {
-    const text = (m.parts?.[0]?.text || "").trim().toLowerCase();
+  const validAnswers = rawAnswers.filter(ans => {
+    const text = (ans || "").trim().toLowerCase();
     if (text.length < 15) return false;
     return !nonAnswerKeywords.some(kw => text.includes(kw) && text.length < 40);
   });
 
-  // Zero-answer safeguard: If candidate answered nothing or gave non-answers, score is strictly 0.
-  // No fake praises, no ego-boost scores.
-  if (userMessages.length === 0 || validAnswers.length === 0) {
+  // Strict Zero-answer check: If candidate answered 0 questions or gave only non-answers, score is strictly 0.
+  if (rawAnswers.length === 0 || validAnswers.length === 0) {
     return {
       overallScore: 0,
       techScore: 0,
@@ -324,9 +333,9 @@ export async function getFinalEvaluation(apiKey, sessionContext, chatHistory) {
         "Candidate did not demonstrate baseline technical proficiency or problem-solving methodology.",
         "Interview was exited prematurely or questions were left unattempted."
       ],
-      questions: modelMessages.map((m, idx) => ({
-        question: m.parts?.[0]?.text || `Question ${idx + 1}`,
-        candidateAnswer: userMessages[idx]?.parts?.[0]?.text || "No response recorded.",
+      questions: modelQuestions.map((qText, idx) => ({
+        question: qText || `Question ${idx + 1}`,
+        candidateAnswer: rawAnswers[idx] || "No response recorded.",
         idealAnswer: `A comprehensive technical response outlining architecture, performance bottlenecks, and design trade-offs.`,
         techEvaluation: "Question was unattempted or contained no technical content. 0/100 points.",
         commEvaluation: "No technical communication provided. 0/100 points.",
@@ -356,7 +365,8 @@ INTERVIEW META:
 - Focus Topics: ${sessionContext.topics.join(", ")}
 - Target Difficulty: ${sessionContext.difficulty}
 - Total Target Question Count: ${totalTargetCount}
-- Questions Asked: ${modelMessages.length}
+- Questions Asked: ${modelQuestions.length}
+- Answers Provided: ${validAnswers.length}
 - Answers Provided: ${userMessages.length}
 
 CRITICAL SCORING & INTEGRITY RULES:
@@ -450,15 +460,14 @@ JSON SCHEMA:
     }
 
     // Mathematical fallback grade calculation when AI response is unavailable
-    const totalCount = sessionContext.questionCount || 5;
+    const totalCount = sessionContext.questionCount || Math.max(modelQuestions.length, 5);
     let techScoresList = [];
     let commScoresList = [];
     let fillerWordsTotal = 0;
     
-    const evaluationQuestions = modelMessages.map((m, idx) => {
-      const questionText = m.parts?.[0]?.text || `Question ${idx + 1}`;
-      const uAns = userMessages[idx];
-      const answerText = uAns?.parts?.[0]?.text || "";
+    const evaluationQuestions = modelQuestions.map((qText, idx) => {
+      const questionText = qText || `Question ${idx + 1}`;
+      const answerText = rawAnswers[idx] || "";
       const cleanAnswer = answerText.trim();
       const lowerAns = cleanAnswer.toLowerCase();
       
